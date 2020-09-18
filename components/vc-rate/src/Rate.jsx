@@ -1,11 +1,12 @@
 import PropTypes from '../../_util/vue-types';
-import classNames from 'classnames';
+import classNames from '../../_util/classNames';
 import KeyCode from '../../_util/KeyCode';
 import {
   initDefaultProps,
   hasProp,
   getOptionProps,
-  getComponentFromProp,
+  getComponent,
+  findDOMNode,
 } from '../../_util/props-util';
 import BaseMixin from '../../_util/BaseMixin';
 import { getOffsetLeft } from './util';
@@ -21,8 +22,8 @@ const rateProps = {
   prefixCls: PropTypes.string,
   character: PropTypes.any,
   characterRender: PropTypes.func,
-  tabIndex: PropTypes.number,
-  autoFocus: PropTypes.bool,
+  tabindex: PropTypes.number,
+  autofocus: PropTypes.bool,
 };
 
 function noop() {}
@@ -30,17 +31,14 @@ function noop() {}
 export default {
   name: 'Rate',
   mixins: [BaseMixin],
-  model: {
-    prop: 'value',
-    event: 'change',
-  },
+  inheritAttrs: false,
   props: initDefaultProps(rateProps, {
     defaultValue: 0,
     count: 5,
     allowHalf: false,
     allowClear: true,
     prefixCls: 'rc-rate',
-    tabIndex: 0,
+    tabindex: 0,
     character: '★',
   }),
   data() {
@@ -64,7 +62,7 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
-      if (this.autoFocus && !this.disabled) {
+      if (this.autofocus && !this.disabled) {
         this.focus();
       }
     });
@@ -79,14 +77,14 @@ export default {
           cleanedValue: null,
         });
       }
-      this.$emit('hoverChange', hoverValue);
+      this.__emit('hoverChange', hoverValue);
     },
     onMouseLeave() {
       this.setState({
         hoverValue: undefined,
         cleanedValue: null,
       });
-      this.$emit('hoverChange', undefined);
+      this.__emit('hoverChange', undefined);
     },
     onClick(event, index) {
       const { allowClear, sValue: value } = this;
@@ -105,13 +103,13 @@ export default {
       this.setState({
         focused: true,
       });
-      this.$emit('focus');
+      this.__emit('focus');
     },
     onBlur() {
       this.setState({
         focused: false,
       });
-      this.$emit('blur');
+      this.__emit('blur');
     },
     onKeyDown(event) {
       const { keyCode } = event;
@@ -134,10 +132,10 @@ export default {
         this.changeValue(sValue);
         event.preventDefault();
       }
-      this.$emit('keydown', event);
+      this.__emit('keydown', event);
     },
     getStarDOM(index) {
-      return this.$refs['stars' + index].$el;
+      return findDOMNode(this.$refs['stars' + index]);
     },
     getStarValue(index, x) {
       let value = index + 1;
@@ -167,33 +165,31 @@ export default {
           sValue: value,
         });
       }
-      this.$emit('change', value);
+      this.__emit('update:value', value);
+      this.__emit('change', value);
     },
   },
   render() {
-    const { count, allowHalf, prefixCls, disabled, tabIndex } = getOptionProps(this);
+    const { count, allowHalf, prefixCls, disabled, tabindex } = getOptionProps(this);
     const { sValue, hoverValue, focused } = this;
+    const { class: className, style } = this.$attrs;
     const stars = [];
     const disabledClass = disabled ? `${prefixCls}-disabled` : '';
-    const character = getComponentFromProp(this, 'character');
-    const characterRender = this.characterRender || this.$scopedSlots.characterRender;
+    const character = getComponent(this, 'character');
+    const characterRender = this.characterRender || this.$slots.characterRender;
     for (let index = 0; index < count; index++) {
       const starProps = {
-        props: {
-          index,
-          count,
-          disabled,
-          prefixCls: `${prefixCls}-star`,
-          allowHalf,
-          value: hoverValue === undefined ? sValue : hoverValue,
-          character,
-          characterRender,
-          focused,
-        },
-        on: {
-          click: this.onClick,
-          hover: this.onHover,
-        },
+        index,
+        count,
+        disabled,
+        prefixCls: `${prefixCls}-star`,
+        allowHalf,
+        value: hoverValue === undefined ? sValue : hoverValue,
+        character,
+        characterRender,
+        focused,
+        onClick: this.onClick,
+        onHover: this.onHover,
         key: index,
         ref: `stars${index}`,
       };
@@ -201,9 +197,10 @@ export default {
     }
     return (
       <ul
-        class={classNames(prefixCls, disabledClass)}
+        class={classNames(prefixCls, disabledClass, className)}
+        style={style}
         onMouseleave={disabled ? noop : this.onMouseLeave}
-        tabIndex={disabled ? -1 : tabIndex}
+        tabindex={disabled ? -1 : tabindex}
         onFocus={disabled ? noop : this.onFocus}
         onBlur={disabled ? noop : this.onBlur}
         onKeydown={disabled ? noop : this.onKeyDown}

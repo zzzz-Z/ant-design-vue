@@ -2,7 +2,7 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import Vue from 'vue';
+import { App } from 'vue';
 
 import { Affix } from './affix';
 import { Anchor } from './anchor/anchor';
@@ -28,13 +28,11 @@ import { Drawer } from './drawer';
 import { Dropdown } from './dropdown/dropdown';
 import { Empty } from './empty';
 import { Form } from './form/form';
-import { FormModel } from './form-model/form';
-import { Icon } from './icon';
 import { Input } from './input/input';
 import { InputNumber } from './input-number';
 import { Layout } from './layout/layout';
 import { List } from './list/list';
-import { LocaleProvider } from './locale-provider';
+import { Space } from './space';
 import { Message } from './message';
 import { Mentions } from './mentions/mentions';
 import { Menu } from './menu/menu';
@@ -73,7 +71,7 @@ import { PageHeader } from './page-header';
  * Please do not invoke this method directly.
  * Call `Vue.use(Antd)` to install.
  */
-export function install(vue: typeof Vue): void;
+export function install(app: App): void;
 
 declare const message: Message;
 declare const notification: Notification;
@@ -102,13 +100,11 @@ export {
   Dropdown,
   Empty,
   Form,
-  FormModel,
-  Icon,
   Input,
   InputNumber,
   Layout,
   List,
-  LocaleProvider,
+  Space,
   message,
   Menu,
   Mentions,

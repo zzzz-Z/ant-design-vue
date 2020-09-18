@@ -1,6 +1,6 @@
 import PropTypes from '../../../_util/vue-types';
 import BaseMixin from '../../../_util/BaseMixin';
-import { getOptionProps, getListeners } from '../../../_util/props-util';
+import { getOptionProps } from '../../../_util/props-util';
 import MonthPanel from '../month/MonthPanel';
 import YearPanel from '../year/YearPanel';
 import DecadePanel from '../decade/DecadePanel';
@@ -23,6 +23,7 @@ function showIf(condition, el) {
 
 const CalendarHeader = {
   name: 'CalendarHeader',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
     prefixCls: PropTypes.string,
@@ -51,7 +52,7 @@ const CalendarHeader = {
   methods: {
     onMonthSelect(value) {
       this.__emit('panelChange', value, 'date');
-      if (getListeners(this).monthSelect) {
+      if (this.$attrs.onMonthSelect) {
         this.__emit('monthSelect', value);
       } else {
         this.__emit('valueChange', value);
@@ -174,7 +175,7 @@ const CalendarHeader = {
       panel = (
         <YearPanel
           locale={locale}
-          defaultValue={value}
+          value={value}
           rootPrefixCls={prefixCls}
           onSelect={this.onYearSelect}
           onDecadePanelShow={this.showDecadePanel}
@@ -186,7 +187,7 @@ const CalendarHeader = {
       panel = (
         <DecadePanel
           locale={locale}
-          defaultValue={value}
+          value={value}
           rootPrefixCls={prefixCls}
           onSelect={this.onDecadeSelect}
           renderFooter={renderFooter}

@@ -1,11 +1,12 @@
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
-import { getComponentFromProp } from '../../_util/props-util';
+import { getComponent } from '../../_util/props-util';
 function noop() {}
 
 export default {
   name: 'Star',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: {
     value: PropTypes.number,
     index: PropTypes.number,
@@ -20,11 +21,11 @@ export default {
   methods: {
     onHover(e) {
       const { index } = this;
-      this.$emit('hover', e, index);
+      this.__emit('hover', e, index);
     },
     onClick(e) {
       const { index } = this;
-      this.$emit('click', e, index);
+      this.__emit('click', e, index);
     },
     onKeyDown(e) {
       const { index } = this.$props;
@@ -65,7 +66,7 @@ export default {
       value,
     } = this;
 
-    const character = getComponentFromProp(this, 'character');
+    const character = getComponent(this, 'character');
     let star = (
       <li class={this.getClassName()}>
         <div
@@ -76,7 +77,7 @@ export default {
           aria-checked={value > index ? 'true' : 'false'}
           aria-posinset={index + 1}
           aria-setsize={count}
-          tabIndex={0}
+          tabindex={0}
         >
           <div class={`${prefixCls}-first`}>{character}</div>
           <div class={`${prefixCls}-second`}>{character}</div>

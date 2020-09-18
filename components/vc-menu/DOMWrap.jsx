@@ -4,21 +4,10 @@ import SubMenu from './SubMenu';
 import BaseMixin from '../_util/BaseMixin';
 import { getWidth, setStyle, menuAllProps } from './util';
 import { cloneElement } from '../_util/vnode';
-import { getClass, getPropsData, getEvents, getListeners } from '../_util/props-util';
-
-const canUseDOM = !!(
-  typeof window !== 'undefined' &&
-  window.document &&
-  window.document.createElement
-);
+import { getPropsData, getAllProps, getSlot, findDOMNode } from '../_util/props-util';
 
 const MENUITEM_OVERFLOWED_CLASSNAME = 'menuitem-overflowed';
 const FLOAT_PRECISION_ADJUST = 0.5;
-
-// Fix ssr
-if (canUseDOM) {
-  require('mutationobserver-shim');
-}
 
 const DOMWrap = {
   name: 'DOMWrap',
@@ -44,7 +33,7 @@ const DOMWrap = {
     this.$nextTick(() => {
       this.setChildrenWidthAndResize();
       if (this.level === 1 && this.mode === 'horizontal') {
-        const menuUl = this.$el;
+        const menuUl = findDOMNode(this);
         if (!menuUl) {
           return;
         }
@@ -80,7 +69,7 @@ const DOMWrap = {
     });
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
@@ -92,7 +81,7 @@ const DOMWrap = {
     // get all valid menuItem nodes
     getMenuItemNodes() {
       const { prefixCls } = this.$props;
-      const ul = this.$el;
+      const ul = findDOMNode(this);
       if (!ul) {
         return [];
       }
@@ -110,9 +99,8 @@ const DOMWrap = {
       }
       // put all the overflowed item inside a submenu
       // with a title of overflow indicator ('...')
-      const copy = this.$slots.default[0];
-      const { title, ...rest } = getPropsData(copy); // eslint-disable-line no-unused-vars
-      const events = getEvents(copy);
+      const copy = getSlot(this)[0];
+      const { title, ...rest } = getAllProps(copy); // eslint-disable-line no-unused-vars
       let style = {};
       let key = `${keyPrefix}-overflowed-indicator`;
       let eventKey = `${keyPrefix}-overflowed-indicator`;
@@ -133,29 +121,20 @@ const DOMWrap = {
 
       const popupClassName = theme ? `${prefixCls}-${theme}` : '';
       const props = {};
-      const on = {};
-      menuAllProps.props.forEach(k => {
+      menuAllProps.forEach(k => {
         if (rest[k] !== undefined) {
           props[k] = rest[k];
         }
       });
-      menuAllProps.on.forEach(k => {
-        if (events[k] !== undefined) {
-          on[k] = events[k];
-        }
-      });
       const subMenuProps = {
-        props: {
-          title: overflowedIndicator,
-          popupClassName,
-          ...props,
-          eventKey,
-          disabled: false,
-        },
+        title: overflowedIndicator,
+        popupClassName,
+        ...props,
+        eventKey,
+        disabled: false,
         class: `${prefixCls}-overflowed-submenu`,
         key,
         style,
-        on,
       };
 
       return <SubMenu {...subMenuProps}>{overflowedItems}</SubMenu>;
@@ -166,7 +145,7 @@ const DOMWrap = {
       if (this.mode !== 'horizontal') {
         return;
       }
-      const ul = this.$el;
+      const ul = findDOMNode(this);
 
       if (!ul) {
         return;
@@ -213,7 +192,7 @@ const DOMWrap = {
         return;
       }
 
-      const ul = this.$el;
+      const ul = findDOMNode(this);
       if (!ul) {
         return;
       }
@@ -245,20 +224,23 @@ const DOMWrap = {
     renderChildren(children) {
       // need to take care of overflowed items in horizontal mode
       const { lastVisibleIndex } = this.$data;
-      const className = getClass(this);
+      const className = this.$attrs.class || '';
       return (children || []).reduce((acc, childNode, index) => {
         let item = childNode;
         const eventKey = getPropsData(childNode).eventKey;
         if (this.mode === 'horizontal') {
           let overflowed = this.getOverflowedSubMenuItem(eventKey, []);
-          if (lastVisibleIndex !== undefined && className[`${this.prefixCls}-root`] !== -1) {
+          if (
+            lastVisibleIndex !== undefined &&
+            className.indexOf(`${this.prefixCls}-root`) !== -1
+          ) {
             if (index > lastVisibleIndex) {
               item = cloneElement(
                 childNode,
                 // 这里修改 eventKey 是为了防止隐藏状态下还会触发 openkeys 事件
                 {
                   style: { display: 'none' },
-                  props: { eventKey: `${eventKey}-hidden` },
+                  eventKey: `${eventKey}-hidden`,
                   class: MENUITEM_OVERFLOWED_CLASSNAME,
                 },
               );
@@ -271,7 +253,7 @@ const DOMWrap = {
                   // we have to overwrite with the correct key explicitly
                   {
                     key: getPropsData(c).eventKey,
-                    props: { mode: 'vertical-left' },
+                    mode: 'vertical-left',
                   },
                 );
               });
@@ -295,10 +277,7 @@ const DOMWrap = {
 
   render() {
     const Tag = this.$props.tag;
-    const tagProps = {
-      on: getListeners(this),
-    };
-    return <Tag {...tagProps}>{this.renderChildren(this.$slots.default)}</Tag>;
+    return <Tag>{this.renderChildren(getSlot(this))}</Tag>;
   },
 };
 

@@ -1,8 +1,11 @@
 import PropTypes from '../_util/vue-types';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
+import BaseMixin from '../_util/BaseMixin';
 
 export default {
   name: 'Pager',
+  mixins: [BaseMixin],
+  inheritAttrs: false,
   props: {
     rootPrefixCls: PropTypes.string,
     page: PropTypes.number,
@@ -17,29 +20,36 @@ export default {
   },
   methods: {
     handleClick() {
-      this.$emit('click', this.page);
+      this.__emit('click', this.page);
     },
     handleKeyPress(event) {
-      this.$emit('keypress', event, this.handleClick, this.page);
+      this.__emit('keypress', event, this.handleClick, this.page);
     },
   },
   render() {
+    const { class: _cls, style } = this.$attrs;
     const props = this.$props;
     const prefixCls = `${props.rootPrefixCls}-item`;
-    const cls = classNames(prefixCls, `${prefixCls}-${props.page}`, {
-      [`${prefixCls}-active`]: props.active,
-      [`${prefixCls}-disabled`]: !props.page,
-    });
+    const cls = classNames(
+      prefixCls,
+      `${prefixCls}-${props.page}`,
+      {
+        [`${prefixCls}-active`]: props.active,
+        [`${prefixCls}-disabled`]: !props.page,
+      },
+      _cls,
+    );
 
     return (
       <li
-        class={cls}
         onClick={this.handleClick}
         onKeypress={this.handleKeyPress}
         title={this.showTitle ? this.page : null}
-        tabIndex="0"
+        tabindex="0"
+        class={cls}
+        style={style}
       >
-        {this.itemRender(this.page, 'page', <a>{this.page}</a>)}
+        {this.itemRender({ page: this.page, type: 'page', originalElement: <a>{this.page}</a> })}
       </li>
     );
   },

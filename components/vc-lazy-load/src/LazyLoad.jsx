@@ -1,12 +1,13 @@
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
 import addEventListener from '../../vc-util/Dom/addEventListener';
-import { initDefaultProps } from '../../_util/props-util';
+import { initDefaultProps, findDOMNode, getSlot } from '../../_util/props-util';
 import warning from '../../_util/warning';
-import debounce from 'lodash/debounce';
-import throttle from 'lodash/throttle';
+import debounce from 'lodash-es/debounce';
+import throttle from 'lodash-es/throttle';
 import parentScroll from './utils/parentScroll';
 import inViewport from './utils/inViewport';
+import { watchEffect } from 'vue';
 
 const lazyLoadProps = {
   debounce: PropTypes.bool,
@@ -22,12 +23,12 @@ const lazyLoadProps = {
   threshold: PropTypes.number,
   throttle: PropTypes.number,
   width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  _propsSymbol: PropTypes.any,
 };
 
 export default {
   name: 'LazyLoad',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: initDefaultProps(lazyLoadProps, {
     elementType: 'div',
     debounce: true,
@@ -52,19 +53,14 @@ export default {
       visible: false,
     };
   },
-  watch: {
-    _propsSymbol() {
-      if (!this.visible) {
-        this.lazyLoadHandler();
-      }
-    },
-  },
   mounted() {
     this.$nextTick(() => {
-      this._mounted = true;
+      watchEffect(() => {
+        if (!this.visible) {
+          this.lazyLoadHandler(this.$props);
+        }
+      });
       const eventNode = this.getEventNode();
-
-      this.lazyLoadHandler();
 
       if (this.lazyLoadHandler.flush) {
         this.lazyLoadHandler.flush();
@@ -73,8 +69,7 @@ export default {
       this.scrollHander = addEventListener(eventNode, 'scroll', this.lazyLoadHandler);
     });
   },
-  beforeDestroy() {
-    this._mounted = false;
+  beforeUnmount() {
     if (this.lazyLoadHandler.cancel) {
       this.lazyLoadHandler.cancel();
     }
@@ -83,7 +78,7 @@ export default {
   },
   methods: {
     getEventNode() {
-      return parentScroll(this.$el);
+      return parentScroll(findDOMNode(this));
     },
     getOffset() {
       const {
@@ -109,11 +104,11 @@ export default {
       };
     },
     lazyLoadHandler() {
-      if (!this._mounted) {
+      if (!this._.isMounted) {
         return;
       }
       const offset = this.getOffset();
-      const node = this.$el;
+      const node = findDOMNode(this);
       const eventNode = this.getEventNode();
 
       if (inViewport(node, eventNode, offset)) {
@@ -128,14 +123,15 @@ export default {
       this.scrollHander && this.scrollHander.remove();
     },
   },
-  render(createElement) {
-    const children = this.$slots.default;
+  render() {
+    const children = getSlot(this);
     if (children.length !== 1) {
       warning(false, 'lazyLoad组件只能包含一个子元素');
       return null;
     }
-    const { height, width, elementType } = this.$props;
+    const { height, width, elementType: ElementType } = this.$props;
     const { visible } = this;
+    const { class: className } = this.$attrs;
 
     const elStyles = {
       height: typeof height === 'number' ? height + 'px' : height,
@@ -144,15 +140,12 @@ export default {
     const elClasses = {
       LazyLoad: true,
       'is-visible': visible,
+      [className]: className,
     };
-
-    return createElement(
-      elementType,
-      {
-        class: elClasses,
-        style: elStyles,
-      },
-      [visible ? children[0] : null],
+    return (
+      <ElementType class={elClasses} style={elStyles}>
+        {visible ? children[0] : null}
+      </ElementType>
     );
   },
 };

@@ -3,25 +3,16 @@
 // Copy from: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
+import { AntdComponent, AntdProps } from '../component';
 
-export default class LayoutHeader extends AntdComponent {
-  /**
-   * container className
-   * @default undefined
-   * @type string
-   */
-  class: string;
-
-  /**
-   * to customize the styles
-   * @type string | object
-   */
-  style: string | object;
-
+export interface LayoutHeaderProps {
   /**
    * whether contain Sider in children, don't have to assign it normally. Useful in ssr avoid style flickering
    * @type boolean
    */
-  hasSider: boolean;
+  hasSider?: boolean;
+}
+
+export default class LayoutHeader extends AntdComponent {
+  $props: AntdProps & LayoutHeaderProps;
 }

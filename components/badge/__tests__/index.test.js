@@ -1,5 +1,4 @@
 import { mount } from '@vue/test-utils';
-import { render } from '@vue/server-test-utils';
 import Badge from '../index';
 
 import { asyncExpect } from '@/tests/utils';
@@ -13,7 +12,7 @@ describe('Badge', () => {
     expect(badge.findAll('.ant-card-multiple-words').length).toBe(0);
   });
   it('badge should support float number', () => {
-    let wrapper = render({
+    let wrapper = mount({
       render() {
         return <Badge count={3.5} />;
       },
@@ -64,7 +63,7 @@ describe('Badge', () => {
 
   it('should render when count is changed', async () => {
     const wrapper = mount(Badge, {
-      propsData: {
+      props: {
         count: 9,
       },
       sync: false,
@@ -135,6 +134,16 @@ describe('Badge', () => {
         );
       },
     });
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+
+  it('text works with vnode', () => {
+    const wrapper = mount({
+      render() {
+        return <Badge status="success" text={<span>hello</span>} />;
+      },
+    });
+
     expect(wrapper.html()).toMatchSnapshot();
   });
 });

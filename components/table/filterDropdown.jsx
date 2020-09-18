@@ -1,17 +1,18 @@
 import FilterFilled from '@ant-design/icons-vue/FilterFilled';
 import Menu, { SubMenu, Item as MenuItem } from '../vc-menu';
 import closest from 'dom-closest';
-import classNames from 'classnames';
-import shallowequal from 'shallowequal';
+import classNames from '../_util/classNames';
+import shallowequal from '../_util/shallowequal';
 import Dropdown from '../dropdown';
 import Checkbox from '../checkbox';
 import Radio from '../radio';
 import FilterDropdownMenuWrapper from './FilterDropdownMenuWrapper';
 import { FilterMenuProps } from './interface';
-import { initDefaultProps, getOptionProps, isValidElement } from '../_util/props-util';
+import { initDefaultProps, isValidElement, findDOMNode } from '../_util/props-util';
 import { cloneElement } from '../_util/vnode';
-import BaseMixin from '../_util/BaseMixin';
+import BaseMixin2 from '../_util/BaseMixin2';
 import { generateValueMaps } from './util';
+import { watchEffect, reactive } from 'vue';
 
 function stopPropagation(e) {
   e.stopPropagation();
@@ -19,64 +20,38 @@ function stopPropagation(e) {
 
 export default {
   name: 'FilterMenu',
-  mixins: [BaseMixin],
+  mixins: [BaseMixin2],
+  inheritAttrs: false,
   props: initDefaultProps(FilterMenuProps, {
-    handleFilter() {},
     column: {},
   }),
-
-  data() {
-    const visible =
-      'filterDropdownVisible' in this.column ? this.column.filterDropdownVisible : false;
-    this.preProps = { ...getOptionProps(this) };
-    return {
-      sSelectedKeys: this.selectedKeys,
+  setup(nextProps) {
+    let preProps = { ...nextProps };
+    const { selectedKeys, column } = nextProps;
+    const state = reactive({
+      neverShown: false,
+      sSelectedKeys: selectedKeys,
       sKeyPathOfSelectedItem: {}, // 记录所有有选中子菜单的祖先菜单
-      sVisible: visible,
-      sValueKeys: generateValueMaps(this.column.filters),
-    };
-  },
-  watch: {
-    _propsSymbol() {
-      const nextProps = getOptionProps(this);
-      const { column } = nextProps;
-      const newState = {};
-
-      /**
-       * if the state is visible the component should ignore updates on selectedKeys prop to avoid
-       * that the user selection is lost
-       * this happens frequently when a table is connected on some sort of realtime data
-       * Fixes https://github.com/ant-design/ant-design/issues/10289 and
-       * https://github.com/ant-design/ant-design/issues/10209
-       */
-      if (
-        'selectedKeys' in nextProps &&
-        !shallowequal(this.preProps.selectedKeys, nextProps.selectedKeys)
-      ) {
-        newState.sSelectedKeys = nextProps.selectedKeys;
-      }
-      if (!shallowequal((this.preProps.column || {}).filters, (nextProps.column || {}).filters)) {
-        newState.sValueKeys = generateValueMaps(nextProps.column.filters);
-      }
-      if ('filterDropdownVisible' in column) {
-        newState.sVisible = column.filterDropdownVisible;
-      }
-      if (Object.keys(newState).length > 0) {
-        this.setState(newState);
-      }
-      this.preProps = { ...nextProps };
-    },
-    // 'column.fixed': function (val) {
-    //   this.setNeverShown(this.column)
-    // },
-    // column (val) {
-    //   if ('filterDropdownVisible' in val) {
-    //     this.sVisible = val.filterDropdownVisible
-    //   }
-    // },
-    // selectedKeys (val) {
-    //   this.sSelectedKeys = val
-    // },
+      sVisible: 'filterDropdownVisible' in column ? column.filterDropdownVisible : false,
+      sValueKeys: generateValueMaps(column.filters),
+    });
+    watchEffect(
+      () => {
+        const { column } = nextProps;
+        if (!shallowequal(preProps.selectedKeys, nextProps.selectedKeys)) {
+          state.sSelectedKeys = nextProps.selectedKeys;
+        }
+        if (!shallowequal((preProps.column || {}).filters, (nextProps.column || {}).filters)) {
+          state.sValueKeys = generateValueMaps(nextProps.column.filters);
+        }
+        if ('filterDropdownVisible' in column) {
+          state.sVisible = column.filterDropdownVisible;
+        }
+        preProps = { ...nextProps };
+      },
+      { flush: 'sync' },
+    );
+    return state;
   },
 
   mounted() {
@@ -96,7 +71,7 @@ export default {
       return this.neverShown ? false : this.sVisible;
     },
     setNeverShown(column) {
-      const rootNode = this.$el;
+      const rootNode = findDOMNode(this);
       const filterBelongToScrollBody = !!closest(rootNode, `.ant-table-scroll`);
       if (filterBelongToScrollBody) {
         // When fixed column have filters, there will be two dropdown menus
@@ -132,13 +107,10 @@ export default {
 
     handleConfirm() {
       this.setVisible(false);
-      this.confirmFilter2();
       // Call `setSelectedKeys` & `confirm` in the same time will make filter data not up to date
       // https://github.com/ant-design/ant-design/issues/12284
       this.$forceUpdate();
-      this.$nextTick(() => {
-        this.confirmFilter;
-      });
+      this.$nextTick(this.confirmFilter2);
     },
 
     onVisibleChange(visible) {
@@ -150,11 +122,11 @@ export default {
       }
     },
     handleMenuItemClick(info) {
-      const { sSelectedKeys: selectedKeys } = this.$data;
+      const { sSelectedKeys: selectedKeys } = this;
       if (!info.keyPath || info.keyPath.length <= 1) {
         return;
       }
-      const { sKeyPathOfSelectedItem: keyPathOfSelectedItem } = this.$data;
+      const { sKeyPathOfSelectedItem: keyPathOfSelectedItem } = this;
       if (selectedKeys && selectedKeys.indexOf(info.key) >= 0) {
         // deselect SubMenu child
         delete keyPathOfSelectedItem[info.key];
@@ -174,7 +146,7 @@ export default {
 
     confirmFilter2() {
       const { column, selectedKeys: propSelectedKeys, confirmFilter } = this.$props;
-      const { sSelectedKeys: selectedKeys, sValueKeys: valueKeys } = this.$data;
+      const { sSelectedKeys: selectedKeys, sValueKeys: valueKeys } = this;
       const { filterDropdown } = column;
 
       if (!shallowequal(selectedKeys, propSelectedKeys)) {
@@ -213,7 +185,7 @@ export default {
       const filtered = selectedKeys && selectedKeys.length > 0;
       let filterIcon = column.filterIcon;
       if (typeof filterIcon === 'function') {
-        filterIcon = filterIcon(filtered, column);
+        filterIcon = filterIcon({ filtered, column });
       }
       const dropdownIconClass = classNames({
         [`${prefixCls}-selected`]: 'filtered' in column ? column.filtered : filtered,
@@ -230,10 +202,9 @@ export default {
       }
       if (filterIcon.length === 1 && isValidElement(filterIcon[0])) {
         return cloneElement(filterIcon[0], {
-          on: {
-            click: stopPropagation,
-          },
-          class: classNames(`${prefixCls}-icon`, dropdownIconClass),
+          title: filterIcon.props?.title || locale.filterTitle,
+          onClick: stopPropagation,
+          class: classNames(`${prefixCls}-icon`, dropdownIconClass, filterIcon.props?.class),
         });
       }
       return <span class={classNames(`${prefixCls}-icon`, dropdownIconClass)}>{filterIcon}</span>;
@@ -241,7 +212,7 @@ export default {
 
     renderMenuItem(item) {
       const { column } = this;
-      const { sSelectedKeys: selectedKeys } = this.$data;
+      const { sSelectedKeys: selectedKeys } = this;
       const multiple = 'filterMultiple' in column ? column.filterMultiple : true;
 
       // We still need trade key as string since Menu render need string
@@ -263,7 +234,7 @@ export default {
   },
 
   render() {
-    const { sSelectedKeys: originSelectedKeys } = this.$data;
+    const { sSelectedKeys: originSelectedKeys } = this;
     const { column, locale, prefixCls, dropdownPrefixCls, getPopupContainer } = this;
     // default multiple selection in filter dropdown
     const multiple = 'filterMultiple' in column ? column.filterMultiple : true;
@@ -299,9 +270,8 @@ export default {
           onDeselect={this.setSelectedKeys}
           selectedKeys={originSelectedKeys && originSelectedKeys.map(val => val.toString())}
           getPopupContainer={getPopupContainer}
-        >
-          {this.renderMenus(column.filters)}
-        </Menu>
+          children={this.renderMenus(column.filters)}
+        ></Menu>
         <div class={`${prefixCls}-dropdown-btns`}>
           <a class={`${prefixCls}-dropdown-link confirm`} onClick={this.handleConfirm}>
             {locale.filterConfirm}
@@ -321,8 +291,8 @@ export default {
         onVisibleChange={this.onVisibleChange}
         getPopupContainer={getPopupContainer}
         forceRender
+        overlay={menus}
       >
-        <template slot="overlay">{menus}</template>
         {this.renderFilterIcon()}
       </Dropdown>
     );

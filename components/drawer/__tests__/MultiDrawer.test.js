@@ -34,41 +34,27 @@ const MultiDrawer = {
   },
   render() {
     const drawerProps = {
-      props: {
-        title: 'Multi-level drawer',
-        width: 520,
-        visible: this.visible,
-        getContainer: false,
-        wrapClassName: 'test_drawer',
-        placement: this.placement,
-      },
-      on: {
-        close: this.onClose,
-      },
+      title: 'Multi-level drawer',
+      width: 520,
+      visible: this.visible,
+      getContainer: false,
+      wrapClassName: 'test_drawer',
+      placement: this.placement,
+      onClose: this.onClose,
     };
     const childrenDrawerProps = {
-      props: {
-        title: 'Two-level Drawer',
-        width: 320,
-        wrapClassName: 'Two-level',
-        visible: this.childrenDrawer,
-        getContainer: false,
-        placement: this.placement,
-      },
-      on: {
-        close: this.onChildrenDrawerClose,
-      },
+      title: 'Two-level Drawer',
+      width: 320,
+      wrapClassName: 'Two-level',
+      visible: this.childrenDrawer,
+      getContainer: false,
+      placement: this.placement,
+      onClose: this.onChildrenDrawerClose,
     };
     const buttonProps = {
-      props: {
-        type: 'primary',
-      },
-      attrs: {
-        id: 'open_drawer',
-      },
-      on: {
-        click: this.showDrawer,
-      },
+      type: 'primary',
+      id: 'open_drawer',
+      onClick: this.showDrawer,
     };
     return (
       <div>
@@ -114,7 +100,7 @@ const MultiDrawer = {
 describe('Drawer', () => {
   it('render right MultiDrawer', async () => {
     const wrapper = mount(MultiDrawer, {
-      propsData: {
+      props: {
         placement: 'right',
       },
       sync: false,
@@ -135,7 +121,7 @@ describe('Drawer', () => {
   it('render left MultiDrawer', async () => {
     document.body.innerHTML = '';
     const wrapper = mount(MultiDrawer, {
-      propsData: {
+      props: {
         placement: 'left',
       },
       sync: false,
@@ -155,7 +141,7 @@ describe('Drawer', () => {
 
   it('render top MultiDrawer', async () => {
     const wrapper = mount(MultiDrawer, {
-      propsData: {
+      props: {
         placement: 'top',
       },
       sync: false,

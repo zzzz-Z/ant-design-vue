@@ -1,34 +1,11 @@
+import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
-import debounce from 'lodash/debounce';
-import hasProp, {
-  initDefaultProps,
-  getComponentFromProp,
-  filterEmpty,
-  getListeners,
-} from '../_util/props-util';
+import debounce from 'lodash-es/debounce';
+import hasProp, { initDefaultProps, getComponent } from '../_util/props-util';
 import { ConfigConsumerProps } from '../config-provider';
-import Base from '../base';
 import warning from '../_util/warning';
-
-// matchMedia polyfill for
-// https://github.com/WickyNilliams/enquire.js/issues/82
-if (typeof window !== 'undefined') {
-  const matchMediaPolyfill = mediaQuery => {
-    return {
-      media: mediaQuery,
-      matches: false,
-      addListener() {},
-      removeListener() {},
-    };
-  };
-  // ref: https://github.com/ant-design/ant-design/issues/18774
-  if (!window.matchMedia) window.matchMedia = matchMediaPolyfill;
-}
-// Use require over import (will be lifted up)
-// make sure matchMedia polyfill run before require('vc-slick')
-// Fix https://github.com/ant-design/ant-design/issues/6560
-// Fix https://github.com/ant-design/ant-design/issues/3308
-const SlickCarousel = require('../vc-slick/src').default;
+import classNames from '../_util/classNames';
+import SlickCarousel from '../vc-slick/src';
 
 export const CarouselEffect = PropTypes.oneOf(['scrollx', 'fade']);
 // Carousel
@@ -78,21 +55,22 @@ export const CarouselProps = {
 
 const Carousel = {
   name: 'ACarousel',
+  inheritAttrs: false,
   props: initDefaultProps(CarouselProps, {
     dots: true,
     arrows: false,
     draggable: false,
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
-
   beforeMount() {
     this.onWindowResized = debounce(this.onWindowResized, 500, {
       leading: false,
     });
   },
-
   mounted() {
     if (hasProp(this, 'vertical')) {
       warning(
@@ -106,9 +84,9 @@ const Carousel = {
       window.addEventListener('resize', this.onWindowResized);
     }
     // https://github.com/ant-design/ant-design/issues/7191
-    this.innerSlider = this.$refs.slick && this.$refs.slick.innerSlider;
+    this.innerSlider = this.slick && this.slick.innerSlider;
   },
-  beforeDestroy() {
+  beforeUnmount() {
     const { autoplay } = this;
     if (autoplay) {
       window.removeEventListener('resize', this.onWindowResized);
@@ -125,29 +103,27 @@ const Carousel = {
       }
       return 'bottom';
     },
+    saveSlick(node) {
+      this.slick = node;
+    },
     onWindowResized() {
       // Fix https://github.com/ant-design/ant-design/issues/2550
       const { autoplay } = this;
-      if (
-        autoplay &&
-        this.$refs.slick &&
-        this.$refs.slick.innerSlider &&
-        this.$refs.slick.innerSlider.autoPlay
-      ) {
-        this.$refs.slick.innerSlider.autoPlay();
+      if (autoplay && this.slick && this.slick.innerSlider && this.slick.innerSlider.autoPlay) {
+        this.slick.innerSlider.autoPlay();
       }
     },
 
     next() {
-      this.$refs.slick.slickNext();
+      this.slick.slickNext();
     },
 
     prev() {
-      this.$refs.slick.slickPrev();
+      this.slick.slickPrev();
     },
 
     goTo(slide, dontAnimate = false) {
-      this.$refs.slick.slickGoTo(slide, dontAnimate);
+      this.slick.slickGoTo(slide, dontAnimate);
     },
   },
 
@@ -158,40 +134,37 @@ const Carousel = {
     if (props.effect === 'fade') {
       props.fade = true;
     }
-
+    const { class: cls, style, ...restAttrs } = this.$attrs;
     const getPrefixCls = this.configProvider.getPrefixCls;
     let className = getPrefixCls('carousel', props.prefixCls);
     const dotsClass = 'slick-dots';
     const dotPosition = this.getDotPosition();
     props.vertical = dotPosition === 'left' || dotPosition === 'right';
-    props.dotsClass = `${dotsClass} ${dotsClass}-${dotPosition || 'bottom'} ${props.dotsClass}`;
-    if (props.vertical) {
-      className = `${className} ${className}-vertical`;
-    }
+    props.dotsClass = classNames(`${dotsClass}`, `${dotsClass}-${dotPosition || 'bottom'}`, {
+      [`${props.dotsClass}`]: !!props.dotsClass,
+    });
+    className = classNames({
+      [cls]: !!cls,
+      [className]: !!className,
+      [`${className}-vertical`]: props.vertical,
+    });
     const SlickCarouselProps = {
-      props: {
-        ...props,
-        nextArrow: getComponentFromProp(this, 'nextArrow'),
-        prevArrow: getComponentFromProp(this, 'prevArrow'),
-      },
-      on: getListeners(this),
-      scopedSlots: this.$scopedSlots,
+      ...props,
+      ...restAttrs,
+      nextArrow: getComponent(this, 'nextArrow'),
+      prevArrow: getComponent(this, 'prevArrow'),
     };
-    const children = filterEmpty($slots.default);
     return (
-      <div class={className}>
-        <SlickCarousel ref="slick" {...SlickCarouselProps}>
-          {children}
-        </SlickCarousel>
+      <div class={className} style={style}>
+        <SlickCarousel ref={this.saveSlick} {...SlickCarouselProps} vSlots={$slots}></SlickCarousel>
       </div>
     );
   },
 };
 
 /* istanbul ignore next */
-Carousel.install = function(Vue) {
-  Vue.use(Base);
-  Vue.component(Carousel.name, Carousel);
+Carousel.install = function(app) {
+  app.component(Carousel.name, Carousel);
 };
 
 export default Carousel;

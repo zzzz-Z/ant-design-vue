@@ -2,60 +2,73 @@
 // Definitions by: drafish <https://github.com/drafish>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from './component';
+import { AntdComponent, AntdProps } from './component';
+import { VNodeChild } from 'vue';
 
 export declare class PageHeader extends AntdComponent {
-  /**
-   * Custom backIcon
-   * @default <ArrowLeftOutlined />
-   * @type any (string | slot)
-   */
-  backIcon: any;
+  $props: AntdProps & {
+    /**
+     * Custom backIcon
+     * @default <ArrowLeftOutlined />
+     * @type any (string | slot)
+     */
+    backIcon?: VNodeChild | JSX.Element;
 
-  /**
-   * Custom prefixCls
-   * @type string
-   */
-  prefixCls: string;
+    /**
+     * Custom prefixCls
+     * @type string
+     */
+    prefixCls?: string;
 
-  /**
-   * Custom title
-   * @type any (string | slot)
-   */
-  title: any;
+    /**
+     * Custom title
+     * @type any (string | slot)
+     */
+    title?: VNodeChild | JSX.Element;
 
-  /**
-   * Custom subTitle
-   * @type any (string | slot)
-   */
-  subTitle: any;
+    /**
+     * Custom subTitle
+     * @type any (string | slot)
+     */
+    subTitle?: VNodeChild | JSX.Element;
+    /**
+     * Breadcrumb configuration
+     * @type breadcrumb
+     */
+    breadcrumb?: object;
 
-  breadcrumb: object;
+    /**
+     * Tag list next to title
+     * @type any (string | slot)
+     */
+    tags?: VNodeChild | JSX.Element;
 
-  /**
-   * Custom tags
-   * @type any (string | slot)
-   */
-  tags: any;
+    /**
+     * PageHeader's footer, generally used to render TabBar
+     * @type any (string | slot)
+     */
+    footer?: VNodeChild | JSX.Element;
 
-  /**
-   * Custom footer
-   * @type any (string | slot)
-   */
-  footer: any;
+    /**
+     * Operating area, at the end of the line of the title line
+     * @type any (string | slot)
+     */
+    extra?: VNodeChild | JSX.Element;
+    /**
+     * Avatar next to the title bar
+     * @type Avatar
+     */
+    avatar?: object;
+    /**
+     * PageHeader type, will change background color
+     * @default true
+     * @type boolean
+     */
+    ghost?: boolean;
 
-  /**
-   * Custom extra
-   * @type any (string | slot)
-   */
-  extra: any;
-
-  avatar: object;
-
-  ghost: boolean;
-
-  /**
-   * Specify a callback that will be called when a user clicks backIcon.
-   */
-  back(): void;
+    /**
+     * Specify a callback that will be called when a user clicks backIcon.
+     */
+    onBack?: (e: MouseEvent) => void;
+  };
 }

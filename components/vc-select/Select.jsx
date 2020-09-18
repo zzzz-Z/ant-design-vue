@@ -1,31 +1,25 @@
+import { TransitionGroup } from 'vue';
 import KeyCode from '../_util/KeyCode';
 import PropTypes from '../_util/vue-types';
-import classnames from 'classnames';
+import classnames from '../_util/classNames';
 import classes from 'component-classes';
 import { Item as MenuItem, ItemGroup as MenuItemGroup } from '../vc-menu';
 import warning from 'warning';
-import Vue from 'vue';
 import Option from './Option';
 import OptGroup from './OptGroup';
 import {
   hasProp,
-  getSlotOptions,
   getPropsData,
   getValueByProp as getValue,
-  getComponentFromProp,
+  getComponent,
   getEvents,
-  getClass,
-  getStyle,
-  getAttrs,
   getOptionProps,
-  getSlots,
-  getListeners,
+  getSlot,
+  findDOMNode,
 } from '../_util/props-util';
 import getTransitionProps from '../_util/getTransitionProps';
 import { cloneElement } from '../_util/vnode';
 import BaseMixin from '../_util/BaseMixin';
-import proxyComponent from '../_util/proxyComponent';
-import ref from 'vue-ref';
 import SelectTrigger from './SelectTrigger';
 import {
   defaultFilterFn,
@@ -53,8 +47,9 @@ import {
 import { SelectPropTypes } from './PropTypes';
 import contains from '../vc-util/Dom/contains';
 import { isIE, isEdge } from '../_util/env';
+import isValid from '../_util/isValid';
+import { getDataAndAriaProps } from '../_util/util';
 
-Vue.use(ref, { name: 'ant-ref' });
 const SELECT_EMPTY_VALUE_KEY = 'RC_SELECT_EMPTY_VALUE_KEY';
 
 const noop = () => null;
@@ -81,6 +76,7 @@ const Select = {
   OptGroup,
   name: 'Select',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: {
     ...SelectPropTypes,
     prefixCls: SelectPropTypes.prefixCls.def('rc-select'),
@@ -102,8 +98,8 @@ const Select = {
     combobox: PropTypes.bool.def(false),
     tokenSeparators: PropTypes.arrayOf(PropTypes.string).def([]),
     autoClearSearchValue: PropTypes.bool.def(true),
-    tabIndex: PropTypes.any.def(0),
-    dropdownRender: PropTypes.func.def(menu => menu),
+    tabindex: PropTypes.any.def(0),
+    dropdownRender: PropTypes.func.def(({ menuNode }) => menuNode),
     // onChange: noop,
     // onFocus: noop,
     // onBlur: noop,
@@ -111,10 +107,6 @@ const Select = {
     // onSearch: noop,
     // onDeselect: noop,
     // onInputKeydown: noop,
-  },
-  model: {
-    prop: 'value',
-    event: 'change',
   },
   created() {
     this.saveInputRef = saveRef(this, 'inputRef');
@@ -160,7 +152,7 @@ const Select = {
     };
     return {
       ...state,
-      _mirrorInputValue: state._inputValue, // https://github.com/vueComponent/ant-design-vue/issues/1458
+      // _mirrorInputValue: state._inputValue, // https://github.com/vueComponent/ant-design-vue/issues/1458
       ...this.getDerivedState(props, state),
     };
   },
@@ -169,7 +161,7 @@ const Select = {
     this.$nextTick(() => {
       // when defaultOpen is true, we should auto focus search input
       // https://github.com/ant-design/ant-design/issues/14254
-      if (this.autoFocus || this._open) {
+      if (this.autofocus || this._open) {
         this.focus();
       }
       // this.setState({
@@ -181,12 +173,24 @@ const Select = {
     __propsSymbol__() {
       Object.assign(this.$data, this.getDerivedState(getOptionProps(this), this.$data));
     },
-    '$data._inputValue'(val) {
-      this.$data._mirrorInputValue = val;
-    },
   },
   updated() {
     this.$nextTick(() => {
+      this.updateInputWidth();
+      this.forcePopupAlign();
+    });
+  },
+  beforeUnmount() {
+    this.clearFocusTime();
+    this.clearBlurTime();
+    this.clearComboboxTime();
+    if (this.dropdownContainer) {
+      document.body.removeChild(this.dropdownContainer);
+      this.dropdownContainer = null;
+    }
+  },
+  methods: {
+    updateInputWidth() {
       if (isMultipleOrTags(this.$props)) {
         const inputNode = this.getInputDOMNode();
         const mirrorNode = this.getInputMirrorDOMNode();
@@ -197,19 +201,7 @@ const Select = {
           inputNode.style.width = '';
         }
       }
-      this.forcePopupAlign();
-    });
-  },
-  beforeDestroy() {
-    this.clearFocusTime();
-    this.clearBlurTime();
-    this.clearComboboxTime();
-    if (this.dropdownContainer) {
-      document.body.removeChild(this.dropdownContainer);
-      this.dropdownContainer = null;
-    }
-  },
-  methods: {
+    },
     getDerivedState(nextProps, prevState) {
       const optionsInfo = prevState._skipBuildOptionsInfo
         ? prevState._optionsInfo
@@ -235,11 +227,11 @@ const Select = {
     },
     getOptionsFromChildren(children = [], options = []) {
       children.forEach(child => {
-        if (!child.data || child.data.slot !== undefined) {
+        if (!child) {
           return;
         }
-        if (getSlotOptions(child).isSelectOptGroup) {
-          this.getOptionsFromChildren(child.componentOptions.children, options);
+        if (child.type?.isSelectOptGroup) {
+          this.getOptionsFromChildren(getSlot(child), options);
         } else {
           options.push(child);
         }
@@ -321,14 +313,7 @@ const Select = {
     },
 
     onInputChange(e) {
-      const { value: val, composing } = e.target;
-      const { _inputValue = '' } = this.$data;
-      if (e.isComposing || composing || _inputValue === val) {
-        this.setState({
-          _mirrorInputValue: val,
-        });
-        return;
-      }
+      const { value: val } = e.target;
       const { tokenSeparators } = this.$props;
       if (
         isMultipleOrTags(this.$props) &&
@@ -489,15 +474,12 @@ const Select = {
 
     onMenuDeselect({ item, domEvent }) {
       if (domEvent.type === 'keydown' && domEvent.keyCode === KeyCode.ENTER) {
-        const menuItemDomNode = item.$el;
+        const menuItemDomNode = findDOMNode(item);
         // https://github.com/ant-design/ant-design/issues/20465#issuecomment-569033796
         if (!isHidden(menuItemDomNode)) {
           this.removeSelected(getValuePropValue(item));
         }
         return;
-      }
-      if (domEvent.type === 'click') {
-        this.removeSelected(getValuePropValue(item));
       }
       if (this.autoClearSearchValue) {
         this.setInputValue('');
@@ -650,30 +632,22 @@ const Select = {
     getPlaceholderElement() {
       const { $props: props, $data: state } = this;
       let hidden = false;
-      if (state._mirrorInputValue) {
+      if (state._inputValue) {
         hidden = true;
       }
       const value = state._value;
       if (value.length) {
         hidden = true;
       }
-      if (
-        !state._mirrorInputValue &&
-        isCombobox(props) &&
-        value.length === 1 &&
-        state._value &&
-        !state._value[0]
-      ) {
+      if (value.length === 1 && state._value && !isValid(state._value[0])) {
         hidden = false;
       }
       const placeholder = props.placeholder;
       if (placeholder) {
         const p = {
-          on: {
-            mousedown: preventDefaultEvent,
-            click: this.onPlaceholderClick,
-          },
-          attrs: UNSELECTABLE_ATTRIBUTE,
+          onMousedown: preventDefaultEvent,
+          onClick: this.onPlaceholderClick,
+          ...UNSELECTABLE_ATTRIBUTE,
           style: {
             display: hidden ? 'none' : 'block',
             ...UNSELECTABLE_STYLE,
@@ -702,15 +676,13 @@ const Select = {
         (e.relatedTarget === this.$refs.arrow ||
           (target &&
             this.selectTriggerRef &&
-            this.selectTriggerRef.getInnerMenu() &&
-            this.selectTriggerRef.getInnerMenu().$el === target) ||
+            findDOMNode(this.selectTriggerRef.getInnerMenu()) === target) ||
           contains(e.target, target))
       ) {
         e.target.focus();
         e.preventDefault();
         return;
       }
-      this.clearBlurTime();
       if (this.disabled) {
         e.preventDefault();
         return;
@@ -759,7 +731,7 @@ const Select = {
           return;
         }
         this.setOpenState(false);
-        this.$emit('blur', this.getVLForOnChange(value));
+        this.__emit('blur', this.getVLForOnChange(value));
       }, 200);
     },
     inputFocus(e) {
@@ -794,67 +766,44 @@ const Select = {
     },
     _getInputElement() {
       const props = this.$props;
-      const { _inputValue: inputValue, _mirrorInputValue } = this.$data;
-      const attrs = getAttrs(this);
-      const defaultInput = <input id={attrs.id} autoComplete="off" />;
+      const { _inputValue: inputValue } = this.$data;
+      const attrs = this.$attrs;
+      const defaultInput = (
+        <input {...(attrs.id !== undefined ? { id: attrs.id } : {})} autocomplete="off" />
+      );
 
       const inputElement = props.getInputElement ? props.getInputElement() : defaultInput;
-      const inputCls = classnames(getClass(inputElement), {
+      const inputCls = classnames(inputElement.props && inputElement.props.class, {
         [`${props.prefixCls}-search__field`]: true,
       });
       const inputEvents = getEvents(inputElement);
       // https://github.com/ant-design/ant-design/issues/4992#issuecomment-281542159
       // Add space to the end of the inputValue as the width measurement tolerance
-      inputElement.data = inputElement.data || {};
       return (
         <div class={`${props.prefixCls}-search__field__wrap`} onClick={this.inputClick}>
           {cloneElement(inputElement, {
-            props: {
-              disabled: props.disabled,
-              value: inputValue,
-            },
-            attrs: {
-              ...(inputElement.data.attrs || {}),
-              disabled: props.disabled,
-              value: inputValue,
-            },
-            domProps: {
-              value: inputValue,
-            },
+            disabled: props.disabled,
+            ...(inputElement.props || {}),
+            disabled: props.disabled,
+            value: inputValue,
             class: inputCls,
-            directives: [
-              {
-                name: 'ant-ref',
-                value: this.saveInputRef,
-              },
-              {
-                name: 'ant-input',
-              },
-            ],
-            on: {
-              input: this.onInputChange,
-              keydown: chaining(
-                this.onInputKeydown,
-                inputEvents.keydown,
-                getListeners(this).inputKeydown,
-              ),
-              focus: chaining(this.inputFocus, inputEvents.focus),
-              blur: chaining(this.inputBlur, inputEvents.blur),
-            },
+            ref: this.saveInputRef,
+            // directives: [
+            //   {
+            //     name: 'ant-input',
+            //   },
+            // ],
+            onInput: this.onInputChange,
+            onKeydown: chaining(
+              this.onInputKeydown,
+              inputEvents.onKeydown,
+              this.$attrs.onInputKeydown,
+            ),
+            onFocus: chaining(this.inputFocus, inputEvents.onFocus),
+            onBlur: chaining(this.inputBlur, inputEvents.onBlur),
           })}
-          <span
-            {...{
-              directives: [
-                {
-                  name: 'ant-ref',
-                  value: this.saveInputMirrorRef,
-                },
-              ],
-            }}
-            // ref='inputMirrorRef'
-            class={`${props.prefixCls}-search__field__mirror`}
-          >
-            {_mirrorInputValue}&nbsp;
+          <span ref={this.saveInputMirrorRef} class={`${props.prefixCls}-search__field__mirror`}>
+            {inputValue}&nbsp;
           </span>
         </div>
       );
@@ -917,7 +866,7 @@ const Select = {
           this.forcePopupAlign,
         );
         if (fireSearch) {
-          this.$emit('search', inputValue);
+          this.__emit('search', inputValue);
         }
       }
     },
@@ -1030,7 +979,7 @@ const Select = {
       this.focusTimer = window.setTimeout(() => {
         // this._focused = true
         // this.updateFocusClassName()
-        this.$emit('focus');
+        this.__emit('focus');
       }, 10);
     },
 
@@ -1104,7 +1053,7 @@ const Select = {
             label: this.getLabelBySingleValue(selectedKey),
           };
         }
-        this.$emit('deselect', event, this.getOptionBySingleValue(selectedKey));
+        this.__emit('deselect', event, this.getOptionBySingleValue(selectedKey));
       }
       this.fireChange(value);
     },
@@ -1116,7 +1065,7 @@ const Select = {
       }
     },
     fireSelect(value) {
-      this.$emit('select', this.getVLBySingleValue(value), this.getOptionBySingleValue(value));
+      this.__emit('select', this.getVLBySingleValue(value), this.getOptionBySingleValue(value));
     },
     fireChange(value) {
       if (!hasProp(this, 'value')) {
@@ -1130,7 +1079,8 @@ const Select = {
       const vls = this.getVLForOnChange(value);
       const options = this.getOptionsBySingleValue(value);
       this._valueOptions = options;
-      this.$emit('change', vls, isMultipleOrTags(this.$props) ? options : options[0]);
+      this.__emit('update:value', vls);
+      this.__emit('change', vls, isMultipleOrTags(this.$props) ? options : options[0]);
     },
 
     isChildDisabled(key) {
@@ -1176,7 +1126,7 @@ const Select = {
             role: 'option',
           };
           const menuItem = (
-            <MenuItem style={UNSELECTABLE_STYLE} {...{ attrs }} value={key} key={key}>
+            <MenuItem style={UNSELECTABLE_STYLE} {...attrs} value={key} key={key}>
               {key}
             </MenuItem>
           );
@@ -1186,12 +1136,10 @@ const Select = {
         // ref: https://github.com/ant-design/ant-design/issues/14090
         if (inputValue && menuItems.every(option => getValuePropValue(option) !== inputValue)) {
           const p = {
-            attrs: UNSELECTABLE_ATTRIBUTE,
+            ...UNSELECTABLE_ATTRIBUTE,
             key: inputValue,
-            props: {
-              value: inputValue,
-              role: 'option',
-            },
+            value: inputValue,
+            role: 'option',
             style: UNSELECTABLE_STYLE,
           };
           options.unshift(<MenuItem {...p}>{inputValue}</MenuItem>);
@@ -1201,13 +1149,11 @@ const Select = {
       if (!options.length && notFoundContent) {
         empty = true;
         const p = {
-          attrs: UNSELECTABLE_ATTRIBUTE,
+          ...UNSELECTABLE_ATTRIBUTE,
           key: 'NOT_FOUND',
-          props: {
-            value: 'NOT_FOUND',
-            disabled: true,
-            role: 'option',
-          },
+          value: 'NOT_FOUND',
+          disabled: true,
+          role: 'option',
           style: UNSELECTABLE_STYLE,
         };
         options = [<MenuItem {...p}>{notFoundContent}</MenuItem>];
@@ -1221,33 +1167,34 @@ const Select = {
       const { _inputValue: inputValue } = this.$data;
       const tags = props.tags;
       children.forEach(child => {
-        if (!child.data || child.data.slot !== undefined) {
+        if (!child) {
           return;
         }
-        if (getSlotOptions(child).isSelectOptGroup) {
-          let label = getComponentFromProp(child, 'label');
+        const type = child.type;
+        if (type?.isSelectOptGroup) {
+          let label = getComponent(child, 'label');
           let key = child.key;
           if (!key && typeof label === 'string') {
             key = label;
           } else if (!label && key) {
             label = key;
           }
-          let childChildren = getSlots(child).default;
-          childChildren = typeof childChildren === 'function' ? childChildren() : childChildren;
+          let childChildren = getComponent(child);
+          childChildren = Array.isArray(childChildren) ? childChildren : [childChildren];
           // Match option group label
           if (inputValue && this._filterOption(inputValue, child)) {
             const innerItems = childChildren.map(subChild => {
               const childValueSub = getValuePropValue(subChild) || subChild.key;
               return (
-                <MenuItem key={childValueSub} value={childValueSub} {...subChild.data}>
-                  {subChild.componentOptions.children}
+                <MenuItem key={childValueSub} value={childValueSub} {...subChild.props}>
+                  {...getSlot(subChild)}
                 </MenuItem>
               );
             });
 
             sel.push(
-              <MenuItemGroup key={key} title={label} class={getClass(child)}>
-                {innerItems}
+              <MenuItemGroup key={key} title={label} class={child.props && child.props.class}>
+                {...innerItems}
               </MenuItemGroup>,
             );
 
@@ -1260,8 +1207,8 @@ const Select = {
             );
             if (innerItems.length) {
               sel.push(
-                <MenuItemGroup key={key} title={label} {...child.data}>
-                  {innerItems}
+                <MenuItemGroup key={key} title={label} {...child.props}>
+                  {...innerItems}
                 </MenuItemGroup>,
               );
             }
@@ -1270,9 +1217,8 @@ const Select = {
           return;
         }
         warning(
-          getSlotOptions(child).isSelectOption,
-          'the children of `Select` should be `Select.Option` or `Select.OptGroup`, ' +
-            `instead of \`${getSlotOptions(child).name || getSlotOptions(child)}\`.`,
+          typeof type === 'object' && type.isSelectOption,
+          'the children of `Select` should be `Select.Option` or `Select.OptGroup`, ',
         );
 
         const childValue = getValuePropValue(child);
@@ -1280,21 +1226,15 @@ const Select = {
         validateOptionValue(childValue, this.$props);
         if (this._filterOption(inputValue, child)) {
           const p = {
-            attrs: {
-              ...UNSELECTABLE_ATTRIBUTE,
-              ...getAttrs(child),
-            },
+            ...UNSELECTABLE_ATTRIBUTE,
             key: childValue,
-            props: {
-              value: childValue,
-              ...getPropsData(child),
-              role: 'option',
-            },
+            value: childValue,
+            ...getPropsData(child),
+            role: 'option',
             style: UNSELECTABLE_STYLE,
-            on: getEvents(child),
-            class: getClass(child),
+            class: child?.class,
           };
-          const menuItem = <MenuItem {...p}>{child.componentOptions.children}</MenuItem>;
+          const menuItem = <MenuItem {...p}>{getSlot(child)}</MenuItem>;
           sel.push(menuItem);
           menuItems.push(menuItem);
         }
@@ -1317,7 +1257,7 @@ const Select = {
         maxTagPlaceholder,
         showSearch,
       } = props;
-      const removeIcon = getComponentFromProp(this, 'removeIcon');
+      const removeIcon = getComponent(this, 'removeIcon');
       const className = `${prefixCls}-selection__rendered`;
       // search input is inside topControlNode in single, multiple & combobox. 2016/04/13
       let innerNode = null;
@@ -1390,7 +1330,7 @@ const Select = {
           maxTagPlaceholderEl = (
             <li
               style={UNSELECTABLE_STYLE}
-              {...{ attrs }}
+              {...attrs}
               onMousedown={preventDefaultEvent}
               class={`${prefixCls}-selection__choice ${prefixCls}-selection__choice__disabled`}
               key="maxTagPlaceholder"
@@ -1424,7 +1364,7 @@ const Select = {
             return (
               <li
                 style={UNSELECTABLE_STYLE}
-                {...{ attrs }}
+                {...attrs}
                 onMousedown={preventDefaultEvent}
                 class={choiceClassName}
                 key={singleValue || SELECT_EMPTY_VALUE_KEY}
@@ -1456,28 +1396,15 @@ const Select = {
         if (isMultipleOrTags(props) && choiceTransitionName) {
           const transitionProps = getTransitionProps(choiceTransitionName, {
             tag: 'ul',
-            afterLeave: this.onChoiceAnimationLeave,
+            onAfterLeave: this.onChoiceAnimationLeave,
           });
-          innerNode = (
-            <transition-group {...transitionProps}>{selectedValueNodes}</transition-group>
-          );
+          innerNode = <TransitionGroup {...transitionProps}>{selectedValueNodes}</TransitionGroup>;
         } else {
           innerNode = <ul>{selectedValueNodes}</ul>;
         }
       }
       return (
-        <div
-          class={className}
-          {...{
-            directives: [
-              {
-                name: 'ant-ref',
-                value: this.saveTopCtrlRef,
-              },
-            ],
-          }}
-          onClick={this.topCtrlContainerClick}
-        >
+        <div class={className} ref={this.saveTopCtrlRef} onClick={this.topCtrlContainerClick}>
           {this.getPlaceholderElement()}
           {innerNode}
         </div>
@@ -1486,7 +1413,7 @@ const Select = {
     renderArrow(multiple) {
       // showArrow : Set to true if not multiple by default but keep set value.
       const { showArrow = !multiple, loading, prefixCls } = this.$props;
-      const inputIcon = getComponentFromProp(this, 'inputIcon');
+      const inputIcon = getComponent(this, 'inputIcon');
       if (!showArrow && !loading) {
         return null;
       }
@@ -1501,7 +1428,7 @@ const Select = {
           key="arrow"
           class={`${prefixCls}-arrow`}
           style={UNSELECTABLE_STYLE}
-          {...{ attrs: UNSELECTABLE_ATTRIBUTE }}
+          {...UNSELECTABLE_ATTRIBUTE}
           onClick={this.onArrowClick}
           ref="arrow"
         >
@@ -1517,14 +1444,14 @@ const Select = {
     renderClear() {
       const { prefixCls, allowClear } = this.$props;
       const { _value: value, _inputValue: inputValue } = this.$data;
-      const clearIcon = getComponentFromProp(this, 'clearIcon');
+      const clearIcon = getComponent(this, 'clearIcon');
       const clear = (
         <span
           key="clear"
           class={`${prefixCls}-selection__clear`}
           onMousedown={preventDefaultEvent}
           style={UNSELECTABLE_STYLE}
-          {...{ attrs: UNSELECTABLE_ATTRIBUTE }}
+          {...UNSELECTABLE_ATTRIBUTE}
           onClick={this.onClearSelection}
         >
           {clearIcon || <i class={`${prefixCls}-selection__clear-icon`}>×</i>}
@@ -1562,13 +1489,7 @@ const Select = {
       }
     },
     selectionRefFocus(e) {
-      if (this._focused || this.disabled || isMultipleOrTagsOrCombobox(this.$props)) {
-        e.preventDefault();
-        return;
-      }
-      this._focused = true;
-      this.updateFocusClassName();
-      this.$emit('focus');
+      this.inputFocus(e);
     },
     selectionRefBlur(e) {
       if (isMultipleOrTagsOrCombobox(this.$props)) {
@@ -1581,12 +1502,12 @@ const Select = {
 
   render() {
     const props = this.$props;
+    const { class: className, style } = this.$attrs;
     const multiple = isMultipleOrTags(props);
     // Default set showArrow to true if not set (not set directly in defaultProps to handle multiple case)
     const { showArrow = true } = props;
     const state = this.$data;
     const { disabled, prefixCls, loading } = props;
-    const ctrlNode = this.renderTopControlNode();
     const { _open: open, _inputValue: inputValue, _value: value } = this.$data;
     if (open) {
       const filterOptions = this.renderFilterOptions();
@@ -1596,35 +1517,23 @@ const Select = {
     const realOpen = this.getRealOpenState();
     const empty = this._empty;
     const options = this._options || [];
-    const { mouseenter = noop, mouseleave = noop, popupScroll = noop } = getListeners(this);
     const selectionProps = {
-      props: {},
-      attrs: {
-        role: 'combobox',
-        'aria-autocomplete': 'list',
-        'aria-haspopup': 'true',
-        'aria-expanded': realOpen,
-        'aria-controls': this.$data._ariaId,
-      },
-      on: {
-        // click: this.selectionRefClick,
-      },
+      role: 'combobox',
+      'aria-autocomplete': 'list',
+      'aria-haspopup': 'true',
+      'aria-expanded': realOpen,
+      'aria-controls': this.$data._ariaId,
       class: `${prefixCls}-selection ${prefixCls}-selection--${multiple ? 'multiple' : 'single'}`,
-      // directives: [
-      //   {
-      //     name: 'ant-ref',
-      //     value: this.saveSelectionRef,
-      //   },
-      // ],
       key: 'selection',
     };
     //if (!isMultipleOrTagsOrCombobox(props)) {
     // selectionProps.on.keydown = this.onKeyDown;
     // selectionProps.on.focus = this.selectionRefFocus;
     // selectionProps.on.blur = this.selectionRefBlur;
-    // selectionProps.attrs.tabIndex = props.disabled ? -1 : props.tabIndex;
+    // selectionProps.attrs.tabindex = props.disabled ? -1 : props.tabindex;
     //}
     const rootCls = {
+      [className]: className,
       [prefixCls]: true,
       [`${prefixCls}-open`]: open,
       [`${prefixCls}-focused`]: open || !!this._focused,
@@ -1661,45 +1570,32 @@ const Select = {
         getPopupContainer={props.getPopupContainer}
         onMenuSelect={this.onMenuSelect}
         onMenuDeselect={this.onMenuDeselect}
-        onPopupScroll={popupScroll}
+        onPopupScroll={this.$attrs.onPopupScroll}
         onPopupFocus={this.onPopupFocus}
-        onMouseenter={mouseenter}
-        onMouseleave={mouseleave}
+        onMouseenter={this.$attrs.onMouseenter}
+        onMouseleave={this.$attrs.onMouseleave}
         showAction={props.showAction}
-        menuItemSelectedIcon={getComponentFromProp(this, 'menuItemSelectedIcon')}
-        {...{
-          directives: [
-            {
-              name: 'ant-ref',
-              value: this.saveSelectTriggerRef,
-            },
-          ],
-        }}
+        menuItemSelectedIcon={getComponent(this, 'menuItemSelectedIcon')}
+        ref={this.saveSelectTriggerRef}
         dropdownRender={props.dropdownRender}
         ariaId={this.$data._ariaId}
       >
         <div
-          {...{
-            directives: [
-              {
-                name: 'ant-ref',
-                value: chaining(this.saveRootRef, this.saveSelectionRef),
-              },
-            ],
-          }}
-          style={getStyle(this)}
+          {...getDataAndAriaProps(this.$attrs)}
+          ref={chaining(this.saveRootRef, this.saveSelectionRef)}
+          style={style}
           class={classnames(rootCls)}
           onMousedown={this.markMouseDown}
           onMouseup={this.markMouseLeave}
           onMouseout={this.markMouseLeave}
-          tabIndex={props.disabled ? -1 : props.tabIndex}
+          tabindex={props.disabled ? -1 : props.tabindex}
           onBlur={this.selectionRefBlur}
           onFocus={this.selectionRefFocus}
           onClick={this.selectionRefClick}
           onKeydown={isMultipleOrTagsOrCombobox(props) ? noop : this.onKeyDown}
         >
           <div {...selectionProps}>
-            {ctrlNode}
+            {this.renderTopControlNode()}
             {this.renderClear()}
             {this.renderArrow(!!multiple)}
           </div>
@@ -1709,4 +1605,4 @@ const Select = {
   },
 };
 export { Select };
-export default proxyComponent(Select);
+export default Select;

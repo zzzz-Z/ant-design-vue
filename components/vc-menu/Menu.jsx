@@ -2,22 +2,18 @@ import PropTypes from '../_util/vue-types';
 import { Provider, create } from '../_util/store';
 import { default as SubPopupMenu, getActiveKey } from './SubPopupMenu';
 import BaseMixin from '../_util/BaseMixin';
-import hasProp, {
-  getOptionProps,
-  getComponentFromProp,
-  filterEmpty,
-  getListeners,
-} from '../_util/props-util';
+import hasProp, { getOptionProps, getComponent, filterEmpty } from '../_util/props-util';
 import commonPropsType from './commonPropsType';
+import { provide } from 'vue';
 
 const Menu = {
   name: 'Menu',
+  inheritAttrs: false,
   props: {
     ...commonPropsType,
     selectable: PropTypes.bool.def(true),
   },
   mixins: [BaseMixin],
-
   data() {
     const props = getOptionProps(this);
     let selectedKeys = props.defaultSelectedKeys;
@@ -33,12 +29,15 @@ const Menu = {
       selectedKeys,
       openKeys,
       activeKey: {
-        '0-menu-': getActiveKey({ ...props, children: this.$slots.default || [] }, props.activeKey),
+        '0-menu-': getActiveKey({ ...props, children: props.children || [] }, props.activeKey),
       },
     });
 
     // this.isRootMenu = true // 声明在props上
     return {};
+  },
+  created() {
+    provide('parentMenu', this);
   },
   mounted() {
     this.updateMiniStore();
@@ -77,7 +76,7 @@ const Menu = {
     // e.g., in rc-select, we need to navigate menu item while
     // current active item is rc-select input box rather than the menu itself
     onKeyDown(e, callback) {
-      this.$refs.innerMenu.getWrappedInstance().onKeyDown(e, callback);
+      this.innerMenu.getWrappedInstance().onKeyDown(e, callback);
     },
     onOpenChange(event) {
       const openKeys = this.store.getState().openKeys.concat();
@@ -155,37 +154,33 @@ const Menu = {
         });
       }
     },
+    saveInnerMenu(ref) {
+      this.innerMenu = ref;
+    },
   },
 
   render() {
-    const props = getOptionProps(this);
+    const props = { ...getOptionProps(this), ...this.$attrs };
+    props.class = props.class
+      ? `${props.class} ${props.prefixCls}-root`
+      : `${props.prefixCls}-root`;
     const subPopupMenuProps = {
-      props: {
-        ...props,
-        itemIcon: getComponentFromProp(this, 'itemIcon', props),
-        expandIcon: getComponentFromProp(this, 'expandIcon', props),
-        overflowedIndicator: getComponentFromProp(this, 'overflowedIndicator', props) || (
-          <span>···</span>
-        ),
-        openTransitionName: this.getOpenTransitionName(),
-        parentMenu: this,
-        children: filterEmpty(this.$slots.default || []),
-      },
-      class: `${props.prefixCls}-root`,
-      on: {
-        ...getListeners(this),
-        click: this.onClick,
-        openChange: this.onOpenChange,
-        deselect: this.onDeselect,
-        select: this.onSelect,
-      },
-      ref: 'innerMenu',
+      ...props,
+      itemIcon: getComponent(this, 'itemIcon', props),
+      expandIcon: getComponent(this, 'expandIcon', props),
+      overflowedIndicator: getComponent(this, 'overflowedIndicator', props) || <span>···</span>,
+      openTransitionName: this.getOpenTransitionName(),
+      children: filterEmpty(props.children),
+      onClick: this.onClick,
+      onOpenChange: this.onOpenChange,
+      onDeselect: this.onDeselect,
+      onSelect: this.onSelect,
+      ref: this.saveInnerMenu,
     };
-    return (
-      <Provider store={this.store}>
-        <SubPopupMenu {...subPopupMenuProps} />
-      </Provider>
-    );
+
+    const subPopupMenu = <SubPopupMenu {...subPopupMenuProps} />;
+    return <Provider store={this.store}>{subPopupMenu}</Provider>;
   },
 };
+
 export default Menu;

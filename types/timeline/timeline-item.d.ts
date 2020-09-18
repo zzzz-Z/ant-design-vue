@@ -2,19 +2,22 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
+import { VNodeChild } from 'vue';
+import { AntdComponent, AntdProps } from '../component';
 
 export declare class TimelineItem extends AntdComponent {
-  /**
-   * Set the circle's color to blue, red, green or other custom colors
-   * @default 'blue'
-   * @type string
-   */
-  color: string;
+  $props: AntdProps & {
+    /**
+     * Set the circle's color to blue, red, green or other custom colors
+     * @default 'blue'
+     * @type string
+     */
+    color?: string;
 
-  /**
-   * Customize timeline dot
-   * @type any (string | slot)
-   */
-  dot: any;
+    /**
+     * Customize timeline dot
+     * @type any (string | slot)
+     */
+    dot?: VNodeChild | JSX.Element;
+  };
 }

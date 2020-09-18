@@ -94,7 +94,7 @@ export const TableRowSelection = {
 export const TableProps = {
   prefixCls: PropTypes.string,
   dropdownPrefixCls: PropTypes.string,
-  rowSelection: PropTypes.oneOfType([PropTypes.shape(TableRowSelection).loose, null]),
+  rowSelection: PropTypes.oneOfType([PropTypes.shape(TableRowSelection).loose, Object]),
   pagination: PropTypes.oneOfType([
     PropTypes.shape({
       ...PaginationProps,
@@ -115,13 +115,9 @@ export const TableProps = {
   expandIconAsCell: PropTypes.bool,
   expandIconColumnIndex: PropTypes.number,
   expandRowByClick: PropTypes.bool,
-  // onExpandedRowsChange?: (expandedRowKeys: string[] | number[]) => void;
-  //  onExpand?: (expanded: boolean, record: T) => void;
-  // onChange?: (pagination: PaginationProps | boolean, filters: string[], sorter: Object) => any;
   loading: PropTypes.oneOfType([PropTypes.shape(SpinProps).loose, PropTypes.bool]),
   locale: TableLocale,
   indentSize: PropTypes.number,
-  // onRowClick?: (record: T, index: number, event: Event) => any;
   customRow: PropTypes.func,
   customHeaderRow: PropTypes.func,
   useFixedHeader: PropTypes.bool,
@@ -137,7 +133,10 @@ export const TableProps = {
   getPopupContainer: PropTypes.func,
   expandIcon: PropTypes.func,
   transformCellText: PropTypes.func,
-  // className?: PropTypes.string,
+  onExpandedRowsChange: PropTypes.func,
+  onExpand: PropTypes.func,
+  onChange: PropTypes.func,
+  onRowClick: PropTypes.func,
   // style?: React.CSSProperties;
   // children?: React.ReactNode;
 };
@@ -169,10 +168,10 @@ export const SelectionCheckboxAllProps = {
   getRecordKey: PropTypes.func,
   data: PropTypes.array,
   prefixCls: PropTypes.string,
-  // onSelect: (key: string, index: number, selectFunc: any) => void;
   hideDefaultSelections: PropTypes.bool,
   selections: PropTypes.oneOfType([PropTypes.array, PropTypes.bool]),
   getPopupContainer: PropTypes.func,
+  onSelect: PropTypes.func,
 };
 
 // export interface SelectionCheckboxAllState {
@@ -196,7 +195,6 @@ export const SelectionBoxProps = {
 // }
 
 export const FilterMenuProps = {
-  _propsSymbol: PropTypes.any,
   locale: TableLocale,
   selectedKeys: PropTypes.arrayOf([PropTypes.string, PropTypes.number]),
   column: PropTypes.object,

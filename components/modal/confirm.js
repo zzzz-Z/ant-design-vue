@@ -1,31 +1,35 @@
-import Vue from 'vue';
+import { createApp } from 'vue';
 import ConfirmDialog from './ConfirmDialog';
 import { destroyFns } from './Modal';
-import Base from '../base';
+
 import Omit from 'omit.js';
 
 export default function confirm(config) {
   const div = document.createElement('div');
-  const el = document.createElement('div');
-  div.appendChild(el);
   document.body.appendChild(div);
   let currentConfig = { ...Omit(config, ['parentContext']), close, visible: true };
 
   let confirmDialogInstance = null;
-  const confirmDialogProps = { props: {} };
+  let confirmDialogProps = {};
   function close(...args) {
-    destroy(...args);
+    currentConfig = {
+      ...currentConfig,
+      visible: false,
+      afterClose: destroy.bind(this, ...args),
+    };
+    update(currentConfig);
   }
   function update(newConfig) {
     currentConfig = {
       ...currentConfig,
       ...newConfig,
     };
-    confirmDialogProps.props = currentConfig;
+    confirmDialogInstance &&
+      Object.assign(confirmDialogInstance, { confirmDialogProps: currentConfig });
   }
   function destroy(...args) {
     if (confirmDialogInstance && div.parentNode) {
-      confirmDialogInstance.$destroy();
+      confirmDialogInstance.vIf = false; // hack destroy
       confirmDialogInstance = null;
       div.parentNode.removeChild(div);
     }
@@ -43,20 +47,18 @@ export default function confirm(config) {
   }
 
   function render(props) {
-    confirmDialogProps.props = props;
-    const V = Base.Vue || Vue;
-    return new V({
-      el,
+    confirmDialogProps = props;
+    return createApp({
       parent: config.parentContext,
       data() {
-        return { confirmDialogProps };
+        return { confirmDialogProps, vIf: true };
       },
       render() {
         // 先解构，避免报错，原因不详
         const cdProps = { ...this.confirmDialogProps };
-        return <ConfirmDialog {...cdProps} />;
+        return this.vIf ? <ConfirmDialog {...cdProps} /> : null;
       },
-    });
+    }).mount(div);
   }
 
   confirmDialogInstance = render(currentConfig);

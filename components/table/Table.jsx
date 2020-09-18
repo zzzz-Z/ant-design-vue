@@ -1,8 +1,9 @@
+import { inject, markRaw } from 'vue';
 import CaretUpFilled from '@ant-design/icons-vue/CaretUpFilled';
 import CaretDownFilled from '@ant-design/icons-vue/CaretDownFilled';
 import VcTable, { INTERNAL_COL_DEFINE } from '../vc-table';
-import classNames from 'classnames';
-import shallowEqual from 'shallowequal';
+import classNames from '../_util/classNames';
+import shallowEqual from '../_util/shallowequal';
 import FilterDropdown from './filterDropdown';
 import createStore from './createStore';
 import SelectionBox from './SelectionBox';
@@ -11,7 +12,7 @@ import Column from './Column';
 import ColumnGroup from './ColumnGroup';
 import createBodyRow from './createBodyRow';
 import { flatArray, treeMap, flatFilter } from './util';
-import { initDefaultProps, mergeProps, getOptionProps, getListeners } from '../_util/props-util';
+import { initDefaultProps, getOptionProps } from '../_util/props-util';
 import BaseMixin from '../_util/BaseMixin';
 import { ConfigConsumerProps } from '../config-provider';
 import { TableProps } from './interface';
@@ -110,9 +111,10 @@ function isFiltersChanged(state, filters) {
 
 export default {
   name: 'Table',
+  mixins: [BaseMixin],
+  inheritAttrs: false,
   Column,
   ColumnGroup,
-  mixins: [BaseMixin],
   props: initDefaultProps(TableProps, {
     dataSource: [],
     useFixedHeader: false,
@@ -128,24 +130,21 @@ export default {
     childrenColumnName: 'children',
   }),
 
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
-  // CheckboxPropsCache: {
-  //   [key: string]: any;
-  // };
-  // store: Store;
-  // columns: ColumnProps<T>[];
-  // components: TableComponents;
 
   data() {
+    this.vcTable = null;
     // this.columns = props.columns || normalizeColumns(props.children)
     const props = getOptionProps(this);
     warning(
       !props.expandedRowRender || !('scroll' in props),
       '`expandedRowRender` and `scroll` are not compatible. Please use one of them at one time.',
     );
-    this.CheckboxPropsCache = {};
+    this.checkboxPropsCache = {};
 
     this.store = createStore({
       selectedRowKeys: getRowSelection(this.$props).selectedRowKeys || [],
@@ -157,8 +156,8 @@ export default {
       sFilters: this.getDefaultFilters(props.columns),
       sPagination: this.getDefaultPagination(this.$props),
       pivot: undefined,
-      sComponents: createComponents(this.components),
-      filterDataCnt: 0
+      sComponents: markRaw(createComponents(this.components)),
+      filterDataCnt: 0,
     };
   },
   watch: {
@@ -185,7 +184,7 @@ export default {
           });
           const { rowSelection } = this;
           if (rowSelection && val.getCheckboxProps !== rowSelection.getCheckboxProps) {
-            this.CheckboxPropsCache = {};
+            this.checkboxPropsCache = {};
           }
         } else if (oldVal && !val) {
           this.store.setState({
@@ -200,7 +199,7 @@ export default {
       this.store.setState({
         selectionDirty: false,
       });
-      this.CheckboxPropsCache = {};
+      this.checkboxPropsCache = {};
     },
 
     columns(val) {
@@ -236,18 +235,20 @@ export default {
     }
   },
   methods: {
+    setTableRef(table) {
+      this.vcTable = table;
+    },
     getCheckboxPropsByItem(item, index) {
       const rowSelection = getRowSelection(this.$props);
       if (!rowSelection.getCheckboxProps) {
-        return { props: {} };
+        return {};
       }
       const key = this.getRecordKey(item, index);
       // Cache checkboxProps
-      if (!this.CheckboxPropsCache[key]) {
-        this.CheckboxPropsCache[key] = rowSelection.getCheckboxProps(item);
+      if (!this.checkboxPropsCache[key]) {
+        this.checkboxPropsCache[key] = rowSelection.getCheckboxProps(item) || {};
       }
-      this.CheckboxPropsCache[key].props = this.CheckboxPropsCache[key].props || {};
-      return this.CheckboxPropsCache[key];
+      return this.checkboxPropsCache[key];
     },
 
     getDefaultSelection() {
@@ -256,9 +257,7 @@ export default {
         return [];
       }
       return this.getFlatData()
-        .filter(
-          (item, rowIndex) => this.getCheckboxPropsByItem(item, rowIndex).props.defaultChecked,
-        )
+        .filter((item, rowIndex) => this.getCheckboxPropsByItem(item, rowIndex).defaultChecked)
         .map((record, rowIndex) => this.getRecordKey(record, rowIndex));
     },
 
@@ -447,13 +446,7 @@ export default {
     onRow(prefixCls, record, index) {
       const { customRow } = this;
       const custom = customRow ? customRow(record, index) : {};
-      return mergeProps(custom, {
-        props: {
-          prefixCls,
-          store: this.store,
-          rowKey: this.getRecordKey(record, index),
-        },
-      });
+      return { ...custom, prefixCls, store: this.store, rowKey: this.getRecordKey(record, index) };
     },
 
     setSelectedRowKeys(selectedRowKeys, selectionInfo) {
@@ -490,19 +483,19 @@ export default {
     },
     generatePopupContainerFunc(getPopupContainer) {
       const { scroll } = this.$props;
-      const table = this.$refs.vcTable;
+      const table = this.vcTable;
       if (getPopupContainer) {
         return getPopupContainer;
       }
       // Use undefined to let rc component use default logic.
-      return scroll && table ? () => table.getTableNode() : undefined;
+      return scroll && table ? () => table.tableNode : undefined;
     },
     scrollToFirstRow() {
       const { scroll } = this.$props;
       if (scroll && scroll.scrollToFirstRowOnChange !== false) {
         scrollTo(0, {
           getContainer: () => {
-            return this.$refs.vcTable.getBodyTable();
+            return this.vcTable.ref_bodyTable;
           },
         });
       }
@@ -681,7 +674,7 @@ export default {
         : this.getDefaultSelection();
       const selectedRowKeys = this.store.getState().selectedRowKeys.concat(defaultSelection);
       const changeableRowKeys = data
-        .filter((item, i) => !this.getCheckboxPropsByItem(item, i).props.disabled)
+        .filter((item, i) => !this.getCheckboxPropsByItem(item, i).disabled)
         .map((item, i) => this.getRecordKey(item, i));
 
       const changeRowKeys = [];
@@ -899,8 +892,10 @@ export default {
       return ({ expandable, expanded, needIndentSpaced, record, onExpand }) => {
         if (expandable) {
           return (
-            <LocaleReceiver componentName="Table" defaultLocale={defaultLocale.Table}>
-              {locale => (
+            <LocaleReceiver
+              componentName="Table"
+              defaultLocale={defaultLocale.Table}
+              children={locale => (
                 <TransButton
                   class={classNames(`${prefixCls}-row-expand-icon`, {
                     [`${prefixCls}-row-collapsed`]: !expanded,
@@ -913,7 +908,7 @@ export default {
                   noStyle
                 />
               )}
-            </LocaleReceiver>
+            />
           );
         }
 
@@ -939,27 +934,23 @@ export default {
       const position = pagination.position || 'bottom';
       const total = pagination.total || this.filterDataCnt;
       const { class: cls, style, onChange, onShowSizeChange, ...restProps } = pagination; // eslint-disable-line
-      const paginationProps = mergeProps({
+      const paginationProps = {
         key: `pagination-${paginationPosition}`,
         class: classNames(cls, `${prefixCls}-pagination`),
-        props: {
-          ...restProps,
-          total,
-          size,
-          current: this.getMaxCurrent(total),
-        },
+        ...restProps,
+        total,
+        size,
+        current: this.getMaxCurrent(total),
         style,
-        on: {
-          change: this.handlePageChange,
-          showSizeChange: this.handleShowSizeChange,
-        },
-      });
+        onChange: this.handlePageChange,
+        onShowSizeChange: this.handleShowSizeChange,
+      };
       return total > 0 && (position === paginationPosition || position === 'both') ? (
         <Pagination {...paginationProps} />
       ) : null;
     },
     renderSelectionBox(type) {
-      return (_, record, index) => {
+      return ({ record, index }) => {
         const rowKey = this.getRecordKey(record, index); // 从 1 开始
         const props = this.getCheckboxPropsByItem(record, index);
         const handleChange = e => {
@@ -967,20 +958,14 @@ export default {
             ? this.handleRadioSelect(record, index, e)
             : this.handleSelect(record, index, e);
         };
-        const selectionBoxProps = mergeProps(
-          {
-            props: {
-              type,
-              store: this.store,
-              rowIndex: rowKey,
-              defaultSelection: this.getDefaultSelection(),
-            },
-            on: {
-              change: handleChange,
-            },
-          },
-          props,
-        );
+        const selectionBoxProps = {
+          type,
+          store: this.store,
+          rowIndex: rowKey,
+          defaultSelection: this.getDefaultSelection(),
+          onChange: handleChange,
+          ...props,
+        };
 
         return (
           <span onClick={stopPropagation}>
@@ -996,7 +981,7 @@ export default {
       if (rowSelection) {
         const data = this.getFlatCurrentPageData().filter((item, index) => {
           if (rowSelection.getCheckboxProps) {
-            return !this.getCheckboxPropsByItem(item, index).props.disabled;
+            return !this.getCheckboxPropsByItem(item, index).disabled;
           }
           return true;
         });
@@ -1016,7 +1001,7 @@ export default {
         };
         if (rowSelection.type !== 'radio') {
           const checkboxAllDisabled = data.every(
-            (item, index) => this.getCheckboxPropsByItem(item, index).props.disabled,
+            (item, index) => this.getCheckboxPropsByItem(item, index).disabled,
           );
           selectionColumn.title = selectionColumn.title || (
             <SelectionCheckboxAll
@@ -1060,7 +1045,6 @@ export default {
           const colFilters = key in filters ? filters[key] : [];
           filterDropdown = (
             <FilterDropdown
-              _propsSymbol={Symbol()}
               locale={locale}
               column={column}
               selectedKeys={colFilters}
@@ -1111,10 +1095,9 @@ export default {
                 ...column.customHeaderCell(col),
               };
             }
-            colProps.on = colProps.on || {};
             // Add sorter logic
-            const onHeaderCellClick = colProps.on.click;
-            colProps.on.click = (...args) => {
+            const onHeaderCellClick = colProps.onClick;
+            colProps.onClick = (...args) => {
               this.toggleSortOrder(column);
               if (onHeaderCellClick) {
                 onHeaderCellClick(...args);
@@ -1167,7 +1150,10 @@ export default {
       getPopupContainer: contextGetPopupContainer,
       transformCellText,
     }) {
-      const { showHeader, locale, getPopupContainer, ...restProps } = getOptionProps(this);
+      const { showHeader, locale, getPopupContainer, ...restProps } = {
+        ...getOptionProps(this),
+        ...this.$attrs,
+      };
       const data = this.getCurrentPageData();
       const expandIconAsCell = this.expandedRowRender && this.expandIconAsCell !== false;
 
@@ -1177,7 +1163,7 @@ export default {
       // Merge too locales
       const mergedLocale = { ...contextLocale, ...locale };
       if (!locale || !locale.emptyText) {
-        mergedLocale.emptyText = renderEmpty(h, 'Table');
+        mergedLocale.emptyText = renderEmpty('Table');
       }
 
       const classString = classNames({
@@ -1210,23 +1196,20 @@ export default {
       }
       const vcTableProps = {
         key: 'table',
-        props: {
-          expandIcon: this.renderExpandIcon(prefixCls),
-          ...restProps,
-          customRow: (record, index) => this.onRow(prefixCls, record, index),
-          components: this.sComponents,
-          prefixCls,
-          data,
-          columns,
-          showHeader,
-          expandIconColumnIndex,
-          expandIconAsCell,
-          emptyText: mergedLocale.emptyText,
-          transformCellText,
-        },
-        on: getListeners(this),
+        expandIcon: this.renderExpandIcon(prefixCls),
+        ...restProps,
+        customRow: (record, index) => this.onRow(prefixCls, record, index),
+        components: this.sComponents,
+        prefixCls,
+        data,
+        columns,
+        showHeader,
+        expandIconColumnIndex,
+        expandIconAsCell,
+        emptyText: mergedLocale.emptyText,
+        transformCellText,
         class: classString,
-        ref: 'vcTable',
+        ref: this.setTableRef,
       };
       return <VcTable {...vcTableProps} />;
     },
@@ -1248,13 +1231,7 @@ export default {
     let loading = this.loading;
     if (typeof loading === 'boolean') {
       loading = {
-        props: {
-          spinning: loading,
-        },
-      };
-    } else {
-      loading = {
-        props: { ...loading },
+        spinning: loading,
       };
     }
     const getPrefixCls = this.configProvider.getPrefixCls;
@@ -1288,13 +1265,11 @@ export default {
         : `${prefixCls}-without-pagination`;
     const spinProps = {
       ...loading,
-      class:
-        loading.props && loading.props.spinning
-          ? `${paginationPatchClass} ${prefixCls}-spin-holder`
-          : '',
+      class: loading && loading.spinning ? `${paginationPatchClass} ${prefixCls}-spin-holder` : '',
     };
+    const { class: className, style } = this.$attrs;
     return (
-      <div class={classNames(`${prefixCls}-wrapper`)}>
+      <div class={classNames(`${prefixCls}-wrapper`, className)} style={style}>
         <Spin {...spinProps}>
           {this.renderPagination(prefixCls, 'top')}
           {table}

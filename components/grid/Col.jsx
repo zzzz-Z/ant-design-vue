@@ -1,6 +1,7 @@
+import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
 import { ConfigConsumerProps } from '../config-provider';
-import { getListeners } from '../_util/props-util';
+import { getSlot } from '../_util/props-util';
 
 const stringOrNumber = PropTypes.oneOfType([PropTypes.string, PropTypes.number]);
 
@@ -27,15 +28,27 @@ export const ColProps = {
   xl: objectOrNumber,
   xxl: objectOrNumber,
   prefixCls: PropTypes.string,
+  flex: stringOrNumber,
 };
 
 export default {
   name: 'ACol',
   props: ColProps,
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
-    rowContext: {
-      default: () => null,
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+      rowContext: inject('rowContext', null),
+    };
+  },
+  methods: {
+    parseFlex(flex) {
+      if (typeof flex === 'number') {
+        return `${flex} ${flex} auto`;
+      }
+      if (/^\d+(\.\d+)?(px|em|rem|%)$/.test(flex)) {
+        return `0 0 ${flex}`;
+      }
+      return flex;
     },
   },
   render() {
@@ -45,8 +58,8 @@ export default {
       offset,
       push,
       pull,
+      flex,
       prefixCls: customizePrefixCls,
-      $slots,
       rowContext,
     } = this;
     const getPrefixCls = this.configProvider.getPrefixCls;
@@ -82,7 +95,6 @@ export default {
       ...sizeClassObj,
     };
     const divProps = {
-      on: getListeners(this),
       class: classes,
       style: {},
     };
@@ -105,6 +117,9 @@ export default {
         };
       }
     }
-    return <div {...divProps}>{$slots.default}</div>;
+    if (flex) {
+      divProps.style.flex = this.parseFlex(flex);
+    }
+    return <div {...divProps}>{getSlot(this)}</div>;
   },
 };

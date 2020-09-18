@@ -1,4 +1,5 @@
-import classNames from 'classnames';
+import { inject } from 'vue';
+import classNames from '../_util/classNames';
 import Dialog from '../vc-dialog';
 import PropTypes from '../_util/vue-types';
 import addEventListener from '../vc-util/Dom/addEventListener';
@@ -8,15 +9,9 @@ import Button from '../button';
 import buttonTypes from '../button/buttonTypes';
 const ButtonType = buttonTypes().type;
 import LocaleReceiver from '../locale-provider/LocaleReceiver';
-import {
-  initDefaultProps,
-  getComponentFromProp,
-  getClass,
-  getStyle,
-  mergeProps,
-  getListeners,
-} from '../_util/props-util';
+import { initDefaultProps, getComponent, getSlot } from '../_util/props-util';
 import { ConfigConsumerProps } from '../config-provider';
+import syncWatch from '../_util/syncWatch';
 
 let mousePosition = null;
 // ref: https://github.com/ant-design/ant-design/issues/15795
@@ -112,12 +107,14 @@ export default {
     };
   },
   watch: {
-    visible(val) {
+    visible: syncWatch(function(val) {
       this.sVisible = val;
-    },
+    }),
   },
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   // static info: ModalFunc;
   // static success: ModalFunc;
@@ -127,6 +124,7 @@ export default {
   // static confirm: ModalFunc;
   methods: {
     handleCancel(e) {
+      this.$emit('update:visible', false);
       this.$emit('cancel', e);
       this.$emit('change', false);
     },
@@ -136,26 +134,19 @@ export default {
     },
     renderFooter(locale) {
       const { okType, confirmLoading } = this;
-      const cancelBtnProps = mergeProps(
-        { on: { click: this.handleCancel } },
-        this.cancelButtonProps || {},
-      );
-      const okBtnProps = mergeProps(
-        {
-          on: { click: this.handleOk },
-          props: {
-            type: okType,
-            loading: confirmLoading,
-          },
-        },
-        this.okButtonProps || {},
-      );
+      const cancelBtnProps = { onClick: this.handleCancel, ...(this.cancelButtonProps || {}) };
+      const okBtnProps = {
+        onClick: this.handleOk,
+        type: okType,
+        loading: confirmLoading,
+        ...(this.okButtonProps || {}),
+      };
       return (
         <div>
           <Button {...cancelBtnProps}>
-            {getComponentFromProp(this, 'cancelText') || locale.cancelText}
+            {getComponent(this, 'cancelText') || locale.cancelText}
           </Button>
-          <Button {...okBtnProps}>{getComponentFromProp(this, 'okText') || locale.okText}</Button>
+          <Button {...okBtnProps}>{getComponent(this, 'okText') || locale.okText}</Button>
         </div>
       );
     },
@@ -168,11 +159,9 @@ export default {
       wrapClassName,
       centered,
       getContainer,
-      $slots,
-      $scopedSlots,
       $attrs,
     } = this;
-    const children = $scopedSlots.default ? $scopedSlots.default() : $slots.default;
+    const children = getSlot(this);
     const { getPrefixCls, getPopupContainer: getContextPopupContainer } = this.configProvider;
     const prefixCls = getPrefixCls('modal', customizePrefixCls);
 
@@ -180,36 +169,29 @@ export default {
       <LocaleReceiver
         componentName="Modal"
         defaultLocale={getConfirmLocale()}
-        scopedSlots={{ default: this.renderFooter }}
+        children={this.renderFooter}
       />
     );
-    const closeIcon = getComponentFromProp(this, 'closeIcon');
+    const closeIcon = getComponent(this, 'closeIcon');
     const closeIconToRender = (
       <span class={`${prefixCls}-close-x`}>
         {closeIcon || <CloseOutlined class={`${prefixCls}-close-icon`} />}
       </span>
     );
-    const footer = getComponentFromProp(this, 'footer');
-    const title = getComponentFromProp(this, 'title');
+    const footer = getComponent(this, 'footer');
+    const title = getComponent(this, 'title');
     const dialogProps = {
-      props: {
-        ...this.$props,
-        getContainer: getContainer === undefined ? getContextPopupContainer : getContainer,
-        prefixCls,
-        wrapClassName: classNames({ [`${prefixCls}-centered`]: !!centered }, wrapClassName),
-        title,
-        footer: footer === undefined ? defaultFooter : footer,
-        visible,
-        mousePosition,
-        closeIcon: closeIconToRender,
-      },
-      on: {
-        ...getListeners(this),
-        close: this.handleCancel,
-      },
-      class: getClass(this),
-      style: getStyle(this),
-      attrs: $attrs,
+      ...this.$props,
+      ...$attrs,
+      getContainer: getContainer === undefined ? getContextPopupContainer : getContainer,
+      prefixCls,
+      wrapClassName: classNames({ [`${prefixCls}-centered`]: !!centered }, wrapClassName),
+      title,
+      footer: footer === undefined ? defaultFooter : footer,
+      visible,
+      mousePosition,
+      closeIcon: closeIconToRender,
+      onClose: this.handleCancel,
     };
     return <Dialog {...dialogProps}>{children}</Dialog>;
   },

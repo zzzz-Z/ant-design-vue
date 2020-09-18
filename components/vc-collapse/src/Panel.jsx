@@ -1,9 +1,12 @@
 import PanelContent from './PanelContent';
-import { initDefaultProps, getComponentFromProp } from '../../_util/props-util';
+import { initDefaultProps, getComponent, getSlot } from '../../_util/props-util';
 import { panelProps } from './commonProps';
+import { Transition } from 'vue';
+import BaseMixin from '../../_util/BaseMixin';
 
 export default {
   name: 'Panel',
+  mixins: [BaseMixin],
   props: initDefaultProps(panelProps(), {
     showArrow: true,
     isActive: false,
@@ -13,7 +16,7 @@ export default {
   }),
   methods: {
     handleItemClick() {
-      this.$emit('itemClick', this.panelKey);
+      this.__emit('itemClick', this.panelKey);
     },
     handleKeyPress(e) {
       if (e.key === 'Enter' || e.keyCode === 13 || e.which === 13) {
@@ -35,20 +38,18 @@ export default {
       expandIcon,
       extra,
     } = this.$props;
-    const { $slots } = this;
 
     const transitionProps = {
-      props: Object.assign({
-        appear: true,
-        css: false,
-      }),
-      on: { ...openAnimation },
+      appear: true,
+      css: false,
+      ...openAnimation,
     };
     const headerCls = {
       [`${prefixCls}-header`]: true,
       [headerClass]: headerClass,
     };
-    const header = getComponentFromProp(this, 'header');
+
+    const header = getComponent(this, 'header');
     const itemCls = {
       [`${prefixCls}-item`]: true,
       [`${prefixCls}-item-active`]: isActive,
@@ -58,32 +59,34 @@ export default {
     if (showArrow && typeof expandIcon === 'function') {
       icon = expandIcon(this.$props);
     }
+
+    const panelContent = (
+      <PanelContent
+        vShow={isActive}
+        prefixCls={prefixCls}
+        isActive={isActive}
+        destroyInactivePanel={destroyInactivePanel}
+        forceRender={forceRender}
+        role={accordion ? 'tabpanel' : null}
+      >
+        {getSlot(this)}
+      </PanelContent>
+    );
     return (
       <div class={itemCls} role="tablist">
         <div
           class={headerCls}
-          onClick={this.handleItemClick.bind(this)}
+          onClick={this.handleItemClick}
           onKeypress={this.handleKeyPress}
           role={accordion ? 'tab' : 'button'}
-          tabIndex={disabled ? -1 : 0}
+          tabindex={disabled ? -1 : 0}
           aria-expanded={isActive}
         >
           {showArrow && icon}
           {header}
           {extra && <div class={`${prefixCls}-extra`}>{extra}</div>}
         </div>
-        <transition {...transitionProps}>
-          <PanelContent
-            v-show={isActive}
-            prefixCls={prefixCls}
-            isActive={isActive}
-            destroyInactivePanel={destroyInactivePanel}
-            forceRender={forceRender}
-            role={accordion ? 'tabpanel' : null}
-          >
-            {$slots.default}
-          </PanelContent>
-        </transition>
+        <Transition {...transitionProps}>{panelContent}</Transition>
       </div>
     );
   },

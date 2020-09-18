@@ -1,11 +1,13 @@
 import PropTypes from '../../../_util/vue-types';
 import BaseMixin from '../../../_util/BaseMixin';
-import { getOptionProps, getListeners } from '../../../_util/props-util';
+import { getOptionProps, findDOMNode } from '../../../_util/props-util';
 import TodayButton from './TodayButton';
 import OkButton from './OkButton';
 import TimePickerButton from './TimePickerButton';
 
 const CalendarFooter = {
+  name: 'CalendarFooter',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
     prefixCls: PropTypes.string,
@@ -31,7 +33,7 @@ const CalendarFooter = {
     },
 
     getRootDOMNode() {
-      return this.$el;
+      return findDOMNode(this);
     },
   },
 
@@ -42,17 +44,15 @@ const CalendarFooter = {
     const extraFooter = renderFooter && renderFooter(mode);
     if (showToday || timePicker || extraFooter) {
       const btnProps = {
-        props: {
-          ...props,
-          value,
-        },
-        on: getListeners(this),
+        ...props,
+        ...this.$attrs,
+        value,
       };
       let nowEl = null;
       if (showToday) {
         nowEl = <TodayButton key="todayButton" {...btnProps} />;
       }
-      delete btnProps.props.value;
+      delete btnProps.value;
       let okBtn = null;
       if (showOk === true || (showOk !== false && !!timePicker)) {
         okBtn = <OkButton key="okButton" {...btnProps} />;

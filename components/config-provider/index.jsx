@@ -1,6 +1,6 @@
 import { reactive, provide } from 'vue';
 import PropTypes from '../_util/vue-types';
-import { getComponentFromProp } from '../_util/props-util';
+import { getComponent, getSlot } from '../_util/props-util';
 import defaultRenderEmpty from './renderEmpty';
 import LocaleProvider, { ANT_MARK } from '../locale-provider';
 import LocaleReceiver from '../locale-provider/LocaleReceiver';
@@ -27,18 +27,13 @@ const ConfigProvider = {
     pageHeader: PropTypes.object,
     transformCellText: PropTypes.func,
   },
-  setup(props) {
-    const configProvider = reactive({
-      ...props,
-      getPrefixCls: undefined,
-      renderEmpty: undefined,
-    });
-    provide('configProvider', configProvider);
-    return { configProvider };
-  },
   created() {
-    this.configProvider.getPrefixCls = this.getPrefixCls;
-    this.configProvider.renderEmpty = this.renderEmpty;
+    this.configProvider = reactive({
+      ...this.$props,
+      getPrefixCls: this.getPrefixCls,
+      renderEmpty: this.renderEmptyComponent,
+    });
+    provide('configProvider', this.configProvider);
   },
   watch: {
     ...getWatch([
@@ -51,10 +46,9 @@ const ConfigProvider = {
     ]),
   },
   methods: {
-    renderEmptyComponent(h, name) {
-      const renderEmpty =
-        getComponentFromProp(this, 'renderEmpty', {}, false) || defaultRenderEmpty;
-      return renderEmpty(h, name);
+    renderEmptyComponent(name) {
+      const renderEmpty = getComponent(this, 'renderEmpty', {}, false) || defaultRenderEmpty;
+      return renderEmpty(name);
     },
     getPrefixCls(suffixCls, customizePrefixCls) {
       const { prefixCls = 'ant' } = this.$props;
@@ -64,7 +58,7 @@ const ConfigProvider = {
     renderProvider(legacyLocale) {
       return (
         <LocaleProvider locale={this.locale || legacyLocale} _ANT_MARK__={ANT_MARK}>
-          {this.$slots.default ? this.$slots.default() : null}
+          {getSlot(this)}
         </LocaleProvider>
       );
     },

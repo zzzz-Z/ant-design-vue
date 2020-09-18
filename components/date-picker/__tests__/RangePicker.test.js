@@ -23,27 +23,20 @@ describe('RangePicker', () => {
   it('show month panel according to value', async () => {
     const birthday = moment('2000-01-01', 'YYYY-MM-DD').locale('zh-cn');
     const wrapper = mount(RangePicker, {
-      propsData: {
+      props: {
         getCalendarContainer: trigger => trigger,
         format: 'YYYY/MM/DD',
         showTime: true,
         open: true,
       },
       sync: false,
+      attachTo: 'body',
     });
     await asyncExpect(() => {
       wrapper.setProps({ value: [birthday, birthday] });
     });
-    const rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      expect(rangeCalendarWrapper.html()).toMatchSnapshot();
+      expect(document.body.innerHTML).toMatchSnapshot();
     });
   });
 
@@ -65,27 +58,18 @@ describe('RangePicker', () => {
           );
         },
       },
-      { sync: false },
-    );
-
-    const rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
+      { sync: false, attachTo: 'body' },
     );
     await asyncExpect(() => {
-      rangeCalendarWrapper.find('.ant-calendar-range-quick-selector .ant-tag').trigger('click');
+      $$('.ant-calendar-range-quick-selector .ant-tag')[0].click();
     });
     await asyncExpect(() => {
-      expect(rangeCalendarWrapper.html()).toMatchSnapshot();
+      expect(wrapper.html()).toMatchSnapshot();
     });
   });
 
   it('highlight range when hover presetted range', async () => {
-    const wrapper = mount(
+    mount(
       {
         render() {
           return (
@@ -100,38 +84,22 @@ describe('RangePicker', () => {
           );
         },
       },
-      { sync: false },
+      { sync: false, attachTo: 'body' },
     );
 
-    let rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      rangeCalendarWrapper
-        .find('.ant-calendar-range-quick-selector .ant-tag')
-        .trigger('mouseenter');
+      $$('.ant-calendar-range-quick-selector .ant-tag')[0].dispatchEvent(
+        new MouseEvent('mouseenter'),
+      );
     });
-    rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      expect(rangeCalendarWrapper.findAll('.ant-calendar-selected-day').length).toBe(2);
+      expect($$('.ant-calendar-selected-day').length).toBe(2);
     });
   });
 
   it('should trigger onCalendarChange when change value', async () => {
     const onCalendarChangeFn = jest.fn();
-    const wrapper = mount(
+    mount(
       {
         render() {
           return (
@@ -143,21 +111,10 @@ describe('RangePicker', () => {
           );
         },
       },
-      { sync: false },
-    );
-    const rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
+      { sync: false, attachTo: 'body' },
     );
     await asyncExpect(() => {
-      rangeCalendarWrapper
-        .findAll('.ant-calendar-cell')
-        .at(15)
-        .trigger('click');
+      $$('.ant-calendar-cell')[15].click();
     });
     expect(onCalendarChangeFn).toHaveBeenCalled();
   });
@@ -166,78 +123,55 @@ describe('RangePicker', () => {
   it('should not throw error when value is reset to `[]`', async () => {
     const birthday = moment('2000-01-01', 'YYYY-MM-DD');
     const wrapper = mount(RangePicker, {
-      propsData: {
+      props: {
         getCalendarContainer: trigger => trigger,
         value: [birthday, birthday],
         open: true,
       },
       sync: false,
+      attachTo: 'body',
     });
     await asyncExpect(() => {
       wrapper.setProps({ value: [] });
     });
-    const rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
       expect(() => {
-        const cell = rangeCalendarWrapper.findAll('.ant-calendar-cell').at(15);
-        cell.trigger('click');
-        cell.trigger('click');
+        const cell = $$('.ant-calendar-cell')[15];
+        cell.click();
+        cell.click();
       }).not.toThrow();
     });
   });
 
   // issue: https://github.com/ant-design/ant-design/issues/7077
   it('should not throw error when select after clear', async () => {
-    const wrapper = mount(RangePicker, {
-      propsData: {
+    mount(RangePicker, {
+      props: {
         getCalendarContainer: trigger => trigger,
         open: true,
       },
       sync: false,
+      attachTo: 'body',
     });
-
-    let rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      const cell = rangeCalendarWrapper.findAll('.ant-calendar-cell').at(15);
-      cell.trigger('click');
-      cell.trigger('click');
+      const cell = $$('.ant-calendar-cell')[15];
+      cell.click();
+      cell.click();
     });
+    $$('.ant-calendar-picker-clear')[0].click();
+    $$('.ant-calendar-picker-input')[0].click();
 
-    wrapper.find('.ant-calendar-picker-clear').trigger('click');
-    wrapper.find('.ant-calendar-picker-input').trigger('click');
-    rangeCalendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
       expect(() => {
-        const cell = rangeCalendarWrapper.findAll('.ant-calendar-cell').at(15);
-        cell.trigger('click');
-        cell.trigger('click');
+        const cell = $$('.ant-calendar-cell')[15];
+        cell.click();
+        cell.click();
       }).not.toThrow();
     });
   });
 
   it('clear hover value after panel close', async () => {
-    const wrapper = mount(
+    mount(
       {
         render() {
           return (
@@ -247,10 +181,10 @@ describe('RangePicker', () => {
           );
         },
       },
-      { sync: false, attachToDocument: true },
+      { sync: false, attachTo: 'body' },
     );
     await asyncExpect(() => {
-      wrapper.find('.ant-calendar-picker-input').trigger('click');
+      $$('.ant-calendar-picker-input')[0].click();
     });
     await asyncExpect(() => {
       $$('.ant-calendar-cell')[25].click();
@@ -258,7 +192,7 @@ describe('RangePicker', () => {
       document.dispatchEvent(new MouseEvent('mousedown'));
     }, 500);
     await asyncExpect(() => {
-      wrapper.find('.ant-calendar-picker-input').trigger('click');
+      $$('.ant-calendar-picker-input')[0].click();
     });
     await asyncExpect(() => {
       expect(
@@ -277,27 +211,27 @@ describe('RangePicker', () => {
       const range = [moment().subtract(2, 'd'), moment()];
       const format = 'YYYY-MM-DD HH:mm:ss';
       const wrapper = mount(RangePicker, {
-        propsData: {
+        props: {
           ranges: { 'recent two days': range },
           format,
         },
         sync: false,
-        attachToDocument: true,
+        attachTo: 'body',
       });
       await asyncExpect(() => {
-        wrapper.find('.ant-calendar-picker-input').trigger('click');
+        $$('.ant-calendar-picker-input')[0].click();
       });
       await asyncExpect(() => {
         $$('.ant-calendar-range-quick-selector .ant-tag')[0].click();
       }, 500);
       await asyncExpect(() => {
-        expect(wrapper.findAll('.ant-calendar-range-picker-input').at(0).element.value).toBe(
+        expect(wrapper.findAll('.ant-calendar-range-picker-input')[0].element.value).toBe(
           range[0].format(format),
         );
       });
       await asyncExpect(() => {
         const inputs = wrapper.findAll('.ant-calendar-range-picker-input');
-        expect(inputs.at(inputs.length - 1).element.value).toBe(range[1].format(format));
+        expect(inputs[inputs.length - 1].element.value).toBe(range[1].format(format));
       });
       await asyncExpect(() => {});
     });
@@ -306,34 +240,34 @@ describe('RangePicker', () => {
       const range = [moment().subtract(2, 'd'), moment()];
       const format = 'YYYY-MM-DD HH:mm:ss';
       const wrapper = mount(RangePicker, {
-        propsData: {
+        props: {
           ranges: { 'recent two days': () => range },
           format,
         },
         sync: false,
-        attachToDocument: true,
+        attachTo: 'body',
       });
       await asyncExpect(() => {
-        wrapper.find('.ant-calendar-picker-input').trigger('click');
+        $$('.ant-calendar-picker-input')[0].click();
       });
       await asyncExpect(() => {
         $$('.ant-calendar-range-quick-selector .ant-tag')[0].click();
       }, 500);
       await asyncExpect(() => {
-        expect(wrapper.findAll('.ant-calendar-range-picker-input').at(0).element.value).toBe(
+        expect(wrapper.findAll('.ant-calendar-range-picker-input')[0].element.value).toBe(
           range[0].format(format),
         );
       });
       await asyncExpect(() => {
         const inputs = wrapper.findAll('.ant-calendar-range-picker-input');
-        expect(inputs.at(inputs.length - 1).element.value).toBe(range[1].format(format));
+        expect(inputs[inputs.length - 1].element.value).toBe(range[1].format(format));
       });
     });
   });
 
   // https://github.com/ant-design/ant-design/issues/6999
   it('input date manually', async () => {
-    mount(RangePicker, { propsData: { open: true }, sync: false, attachToDocument: true });
+    mount(RangePicker, { props: { open: true }, sync: false, attachTo: 'body' });
     const dateString = '2008-12-31';
     let input = null;
     await asyncExpect(() => {
@@ -347,12 +281,12 @@ describe('RangePicker', () => {
     const handleOk = jest.fn();
     const range = [moment().subtract(2, 'd'), moment()];
     const wrapper = mount(RangePicker, {
-      propsData: {
+      props: {
         ranges: { 'recent two days': range },
+        onOk: handleOk,
       },
-      listeners: { ok: handleOk },
       sync: false,
-      attachToDocument: true,
+      attachTo: 'body',
     });
 
     await asyncExpect(() => {
@@ -368,7 +302,7 @@ describe('RangePicker', () => {
 
   // https://github.com/ant-design/ant-design/issues/9267
   it('invali end date not throw error', async () => {
-    const wrapper = mount(RangePicker, { sync: false, attachToDocument: true });
+    const wrapper = mount(RangePicker, { sync: false, attachTo: 'body' });
     await asyncExpect(() => {
       wrapper.find('.ant-calendar-picker-input').trigger('click');
     });
@@ -401,7 +335,7 @@ describe('RangePicker', () => {
       },
       {
         sync: false,
-        attachToDocument: true,
+        attachTo: 'body',
       },
     );
     await asyncExpect(() => {

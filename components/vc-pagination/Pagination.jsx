@@ -1,10 +1,11 @@
 import PropTypes from '../_util/vue-types';
 import BaseMixin from '../_util/BaseMixin';
-import { hasProp, getComponentFromProp, getOptionProps } from '../_util/props-util';
+import { hasProp, getOptionProps, getComponent, splitAttrs } from '../_util/props-util';
 import Pager from './Pager';
 import Options from './Options';
 import LOCALE from './locale/zh_CN';
 import KEYCODE from './KeyCode';
+import classNames from '../_util/classNames';
 
 function noop() {}
 
@@ -13,8 +14,8 @@ function isInteger(value) {
   return typeof value === 'number' && isFinite(value) && Math.floor(value) === value;
 }
 
-function defaultItemRender(page, type, element) {
-  return element;
+function defaultItemRender({ originalElement }) {
+  return originalElement;
 }
 
 function calculatePage(p, state, props) {
@@ -28,10 +29,7 @@ function calculatePage(p, state, props) {
 export default {
   name: 'Pagination',
   mixins: [BaseMixin],
-  model: {
-    prop: 'current',
-    event: 'change.current',
-  },
+  inheritAttrs: false,
   props: {
     disabled: PropTypes.bool,
     prefixCls: PropTypes.string.def('rc-pagination'),
@@ -54,7 +52,7 @@ export default {
     showTotal: PropTypes.func,
     simple: PropTypes.bool,
     locale: PropTypes.object.def(LOCALE),
-    itemRender: PropTypes.func.def(defaultItemRender),
+    itemRender: PropTypes.func,
     prevIcon: PropTypes.any,
     nextIcon: PropTypes.any,
     jumpPrevIcon: PropTypes.any,
@@ -151,7 +149,7 @@ export default {
     },
     getItemIcon(icon) {
       const { prefixCls } = this.$props;
-      const iconNode = getComponentFromProp(this, icon, this.$props) || (
+      const iconNode = getComponent(this, icon, this.$props) || (
         <a class={`${prefixCls}-item-link`} />
       );
       return iconNode;
@@ -236,10 +234,10 @@ export default {
           });
         }
       }
-      this.$emit('update:pageSize', size);
-      this.$emit('showSizeChange', current, size);
+      this.__emit('update:pageSize', size);
+      this.__emit('showSizeChange', current, size);
       if (current !== preCurrent) {
-        this.$emit('change.current', current, size);
+        this.__emit('update:current', current);
       }
     },
     handleChange(p) {
@@ -258,9 +256,9 @@ export default {
             stateCurrentInputValue: page,
           });
         }
-        // this.$emit('input', page)
-        this.$emit('change', page, this.statePageSize);
-        this.$emit('change.current', page, this.statePageSize);
+        // this.__emit('input', page)
+        this.__emit('update:current', page);
+        this.__emit('change', page, this.statePageSize);
         return page;
       }
       return this.stateCurrent;
@@ -312,11 +310,12 @@ export default {
   },
   render() {
     const { prefixCls, disabled } = this.$props;
-
+    const { class: className, ...restAttrs } = splitAttrs(this.$attrs).extraAttrs;
     // When hideOnSinglePage is true and there is only 1 page, hide the pager
     if (this.hideOnSinglePage === true && this.total <= this.statePageSize) {
       return null;
     }
+    const itemRender = this.itemRender || defaultItemRender;
     const props = this.$props;
     const locale = this.locale;
 
@@ -359,17 +358,22 @@ export default {
       }
       const hasPrev = this.hasPrev();
       const hasNext = this.hasNext();
+
       return (
-        <ul class={`${prefixCls} ${prefixCls}-simple`}>
+        <ul class={classNames(`${prefixCls} ${prefixCls}-simple`, className)} {...restAttrs}>
           <li
             title={this.showTitle ? locale.prev_page : null}
             onClick={this.prev}
-            tabIndex={hasPrev ? 0 : null}
+            tabindex={hasPrev ? 0 : null}
             onKeypress={this.runIfEnterPrev}
             class={`${hasPrev ? '' : `${prefixCls}-disabled`} ${prefixCls}-prev`}
             aria-disabled={!this.hasPrev()}
           >
-            {this.itemRender(prevPage, 'prev', this.getItemIcon('prevIcon'))}
+            {itemRender({
+              page: prevPage,
+              type: 'prev',
+              originalElement: this.getItemIcon('prevIcon'),
+            })}
           </li>
           <li
             title={this.showTitle ? `${stateCurrent}/${allPages}` : null}
@@ -381,14 +385,8 @@ export default {
               onKeydown={this.handleKeyDown}
               onKeyup={this.handleKeyUp}
               onInput={this.handleKeyUp}
+              onChange={this.handleKeyUp}
               size="3"
-              {...{
-                directives: [
-                  {
-                    name: 'ant-input',
-                  },
-                ],
-              }}
             />
             <span class={`${prefixCls}-slash`}>／</span>
             {allPages}
@@ -396,12 +394,16 @@ export default {
           <li
             title={this.showTitle ? locale.next_page : null}
             onClick={this.next}
-            tabIndex={this.hasNext ? 0 : null}
+            tabindex={this.hasNext ? 0 : null}
             onKeypress={this.runIfEnterNext}
             class={`${hasNext ? '' : `${prefixCls}-disabled`} ${prefixCls}-next`}
             aria-disabled={!this.hasNext()}
           >
-            {this.itemRender(nextPage, 'next', this.getItemIcon('nextIcon'))}
+            {itemRender({
+              page: nextPage,
+              type: 'next',
+              originalElement: this.getItemIcon('nextIcon'),
+            })}
           </li>
           {gotoButton}
         </ul>
@@ -409,16 +411,12 @@ export default {
     }
     if (allPages <= 5 + pageBufferSize * 2) {
       const pagerProps = {
-        props: {
-          locale,
-          rootPrefixCls: prefixCls,
-          showTitle: props.showTitle,
-          itemRender: props.itemRender,
-        },
-        on: {
-          click: this.handleChange,
-          keypress: this.runIfEnter,
-        },
+        locale,
+        rootPrefixCls: prefixCls,
+        showTitle: props.showTitle,
+        itemRender,
+        onClick: this.handleChange,
+        onKeypress: this.runIfEnter,
       };
       if (!allPages) {
         pagerList.push(
@@ -442,11 +440,15 @@ export default {
             title={this.showTitle ? prevItemTitle : null}
             key="prev"
             onClick={this.jumpPrev}
-            tabIndex="0"
+            tabindex="0"
             onKeypress={this.runIfEnterJumpPrev}
             class={jumpPrevClassString}
           >
-            {this.itemRender(this.getJumpPrevPage(), 'jump-prev', this.getItemIcon('jumpPrevIcon'))}
+            {itemRender({
+              page: this.getJumpPrevPage(),
+              type: 'jump-prev',
+              originalElement: this.getItemIcon('jumpPrevIcon'),
+            })}
           </li>
         );
         let jumpNextClassString = `${prefixCls}-jump-next`;
@@ -457,12 +459,16 @@ export default {
           <li
             title={this.showTitle ? nextItemTitle : null}
             key="next"
-            tabIndex="0"
+            tabindex="0"
             onClick={this.jumpNext}
             onKeypress={this.runIfEnterJumpNext}
             class={jumpNextClassString}
           >
-            {this.itemRender(this.getJumpNextPage(), 'jump-next', this.getItemIcon('jumpNextIcon'))}
+            {itemRender({
+              page: this.getJumpNextPage(),
+              type: 'jump-next',
+              originalElement: this.getItemIcon('jumpNextIcon'),
+            })}
           </li>
         );
       }
@@ -478,7 +484,7 @@ export default {
           page={allPages}
           active={false}
           showTitle={this.showTitle}
-          itemRender={this.itemRender}
+          itemRender={itemRender}
         />
       );
       firstPager = (
@@ -491,7 +497,7 @@ export default {
           page={1}
           active={false}
           showTitle={this.showTitle}
-          itemRender={this.itemRender}
+          itemRender={itemRender}
         />
       );
 
@@ -518,7 +524,7 @@ export default {
             page={i}
             active={active}
             showTitle={this.showTitle}
-            itemRender={this.itemRender}
+            itemRender={itemRender}
           />,
         );
       }
@@ -535,7 +541,7 @@ export default {
             class={`${prefixCls}-item-after-jump-prev`}
             active={false}
             showTitle={this.showTitle}
-            itemRender={this.itemRender}
+            itemRender={itemRender}
           />
         );
         pagerList.unshift(jumpPrev);
@@ -552,7 +558,7 @@ export default {
             class={`${prefixCls}-item-before-jump-next`}
             active={false}
             showTitle={this.showTitle}
-            itemRender={this.itemRender}
+            itemRender={itemRender}
           />
         );
         pagerList.push(jumpNext);
@@ -580,34 +586,46 @@ export default {
     }
     const prevDisabled = !this.hasPrev() || !allPages;
     const nextDisabled = !this.hasNext() || !allPages;
-    const buildOptionText = this.buildOptionText || this.$scopedSlots.buildOptionText;
+    const buildOptionText = this.buildOptionText || this.$slots.buildOptionText;
     return (
       <ul
-        class={{ [`${prefixCls}`]: true, [`${prefixCls}-disabled`]: disabled }}
         unselectable="unselectable"
         ref="paginationNode"
+        {...restAttrs}
+        class={classNames(
+          { [`${prefixCls}`]: true, [`${prefixCls}-disabled`]: disabled },
+          className,
+        )}
       >
         {totalText}
         <li
           title={this.showTitle ? locale.prev_page : null}
           onClick={this.prev}
-          tabIndex={prevDisabled ? null : 0}
+          tabindex={prevDisabled ? null : 0}
           onKeypress={this.runIfEnterPrev}
           class={`${!prevDisabled ? '' : `${prefixCls}-disabled`} ${prefixCls}-prev`}
           aria-disabled={prevDisabled}
         >
-          {this.itemRender(prevPage, 'prev', this.getItemIcon('prevIcon'))}
+          {itemRender({
+            page: prevPage,
+            type: 'prev',
+            originalElement: this.getItemIcon('prevIcon'),
+          })}
         </li>
         {pagerList}
         <li
           title={this.showTitle ? locale.next_page : null}
           onClick={this.next}
-          tabIndex={nextDisabled ? null : 0}
+          tabindex={nextDisabled ? null : 0}
           onKeypress={this.runIfEnterNext}
           class={`${!nextDisabled ? '' : `${prefixCls}-disabled`} ${prefixCls}-next`}
           aria-disabled={nextDisabled}
         >
-          {this.itemRender(nextPage, 'next', this.getItemIcon('nextIcon'))}
+          {itemRender({
+            page: nextPage,
+            type: 'next',
+            originalElement: this.getItemIcon('nextIcon'),
+          })}
         </li>
         <Options
           disabled={disabled}

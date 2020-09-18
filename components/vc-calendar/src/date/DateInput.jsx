@@ -1,6 +1,6 @@
 import PropTypes from '../../../_util/vue-types';
 import BaseMixin from '../../../_util/BaseMixin';
-import { getComponentFromProp } from '../../../_util/props-util';
+import { getComponent, findDOMNode } from '../../../_util/props-util';
 import moment from 'moment';
 import { formatDate } from '../util';
 import KeyCode from '../../../_util/KeyCode';
@@ -10,13 +10,19 @@ let cachedSelectionEnd;
 let dateInputInstance;
 
 const DateInput = {
+  name: 'DateInput',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
     prefixCls: PropTypes.string,
     timePicker: PropTypes.object,
     value: PropTypes.object,
     disabledTime: PropTypes.any,
-    format: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
+    format: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.arrayOf(PropTypes.string),
+      PropTypes.func,
+    ]),
     locale: PropTypes.object,
     disabledDate: PropTypes.func,
     // onChange: PropTypes.func,
@@ -27,6 +33,8 @@ const DateInput = {
     clearIcon: PropTypes.any,
     inputMode: PropTypes.string,
     inputReadOnly: PropTypes.bool,
+    disabled: PropTypes.bool,
+    showClear: PropTypes.bool,
   },
 
   data() {
@@ -156,7 +164,7 @@ const DateInput = {
       }
     },
     getRootDOMNode() {
-      return this.$el;
+      return findDOMNode(this);
     },
     focus() {
       if (dateInputInstance) {
@@ -180,33 +188,24 @@ const DateInput = {
       inputMode,
       inputReadOnly,
     } = this;
-    const clearIcon = getComponentFromProp(this, 'clearIcon');
+    const clearIcon = getComponent(this, 'clearIcon');
     const invalidClass = invalid ? `${prefixCls}-input-invalid` : '';
     return (
       <div class={`${prefixCls}-input-wrap`}>
         <div class={`${prefixCls}-date-input-wrap`}>
           <input
-            {...{
-              directives: [
-                {
-                  name: 'ant-ref',
-                  value: this.saveDateInput,
-                },
-                {
-                  name: 'ant-input',
-                },
-              ],
-            }}
+            ref={this.saveDateInput}
             class={`${prefixCls}-input ${invalidClass}`}
             value={str}
             disabled={disabled}
             placeholder={placeholder}
             onInput={this.onInputChange}
+            onChange={this.onInputChange}
             onKeydown={this.onKeyDown}
             onFocus={this.onFocus}
             onBlur={this.onBlur}
             inputMode={inputMode}
-            readOnly={inputReadOnly}
+            readonly={inputReadOnly}
           />
         </div>
         {showClear ? (

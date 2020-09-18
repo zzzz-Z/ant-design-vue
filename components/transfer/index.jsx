@@ -1,20 +1,13 @@
+import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
-import {
-  hasProp,
-  initDefaultProps,
-  getOptionProps,
-  getComponentFromProp,
-  getListeners,
-} from '../_util/props-util';
+import { hasProp, initDefaultProps, getOptionProps, getComponent } from '../_util/props-util';
 import BaseMixin from '../_util/BaseMixin';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import List from './list';
 import Operation from './operation';
 import LocaleReceiver from '../locale-provider/LocaleReceiver';
 import defaultLocale from '../locale-provider/default';
 import { ConfigConsumerProps } from '../config-provider';
-import warning from '../_util/warning';
-import Base from '../base';
 
 export const TransferDirection = 'left' | 'right';
 
@@ -44,6 +37,12 @@ export const TransferProps = {
   rowKey: PropTypes.func,
   lazy: PropTypes.oneOfType([PropTypes.object, PropTypes.bool]),
   showSelectAll: PropTypes.bool,
+  children: PropTypes.any,
+  onChange: PropTypes.func,
+  onSelectChange: PropTypes.func,
+  onSearchChange: PropTypes.func,
+  onSearch: PropTypes.func,
+  onScroll: PropTypes.func,
 };
 
 export const TransferLocale = {
@@ -55,6 +54,7 @@ export const TransferLocale = {
 
 const Transfer = {
   name: 'ATransfer',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: initDefaultProps(TransferProps, {
     dataSource: [],
@@ -62,13 +62,15 @@ const Transfer = {
     showSearch: false,
     listStyle: () => {},
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   data() {
     // vue 中 通过slot，不方便传递，保留notFoundContent及searchPlaceholder
     // warning(
-    //   !(getComponentFromProp(this, 'notFoundContent') || hasProp(this, 'searchPlaceholder')),
+    //   !(getComponent(this, 'notFoundContent') || hasProp(this, 'searchPlaceholder')),
     //   'Transfer[notFoundContent] and Transfer[searchPlaceholder] will be removed, ' +
     //   'please use Transfer[locale] instead.',
     // )
@@ -120,12 +122,11 @@ const Transfer = {
     },
 
     getLocale(transferLocale, renderEmpty) {
-      const h = this.$createElement;
       // Keep old locale props still working.
       const oldLocale = {
-        notFoundContent: renderEmpty(h, 'Transfer'),
+        notFoundContent: renderEmpty('Transfer'),
       };
-      const notFoundContent = getComponentFromProp(this, 'notFoundContent');
+      const notFoundContent = getComponent(this, 'notFoundContent');
       if (notFoundContent) {
         oldLocale.notFoundContent = notFoundContent;
       }
@@ -239,14 +240,14 @@ const Transfer = {
 
     handleFilter(direction, e) {
       const value = e.target.value;
-      if (getListeners(this).searchChange) {
-        warning(
-          false,
-          'Transfer',
-          '`searchChange` in Transfer is deprecated. Please use `search` instead.',
-        );
-        this.$emit('searchChange', direction, e);
-      }
+      // if (getListeners(this).searchChange) {
+      //   warning(
+      //     false,
+      //     'Transfer',
+      //     '`searchChange` in Transfer is deprecated. Please use `search` instead.',
+      //   );
+      //   this.$emit('searchChange', direction, e);
+      // }
       this.$emit('search', direction, value);
     },
 
@@ -287,18 +288,18 @@ const Transfer = {
       }
     },
 
-    handleSelect(direction, selectedItem, checked) {
-      warning(false, 'Transfer', '`handleSelect` will be removed, please use `onSelect` instead.');
-      this.onItemSelect(direction, selectedItem.key, checked);
-    },
+    // handleSelect(direction, selectedItem, checked) {
+    //   warning(false, 'Transfer', '`handleSelect` will be removed, please use `onSelect` instead.');
+    //   this.onItemSelect(direction, selectedItem.key, checked);
+    // },
 
-    handleLeftSelect(selectedItem, checked) {
-      return this.handleSelect('left', selectedItem, checked);
-    },
+    // handleLeftSelect(selectedItem, checked) {
+    //   return this.handleSelect('left', selectedItem, checked);
+    // },
 
-    handleRightSelect(selectedItem, checked) {
-      return this.handleSelect('right', selectedItem, checked);
-    },
+    // handleRightSelect(selectedItem, checked) {
+    //   return this.handleSelect('right', selectedItem, checked);
+    // },
 
     onLeftItemSelect(selectedKey, checked) {
       return this.onItemSelect('left', selectedKey, checked);
@@ -373,26 +374,27 @@ const Transfer = {
         lazy,
         showSelectAll,
       } = props;
-      const children = getComponentFromProp(this, 'children', {}, false);
+      const { class: className, style } = this.$attrs;
+      const children = getComponent(this, 'children', {}, false);
       const getPrefixCls = this.configProvider.getPrefixCls;
       const prefixCls = getPrefixCls('transfer', customizePrefixCls);
 
       const renderEmpty = this.configProvider.renderEmpty;
       const locale = this.getLocale(transferLocale, renderEmpty);
-      const { sourceSelectedKeys, targetSelectedKeys, $scopedSlots } = this;
-      const { body, footer } = $scopedSlots;
-      const renderItem = props.render;
+      const { sourceSelectedKeys, targetSelectedKeys, $slots } = this;
+      const { body, footer } = $slots;
+      const renderItem = props.render || this.$slots.render;
       const { leftDataSource, rightDataSource } = this.separateDataSource();
       const leftActive = targetSelectedKeys.length > 0;
       const rightActive = sourceSelectedKeys.length > 0;
 
-      const cls = classNames(prefixCls, {
+      const cls = classNames(prefixCls, className, {
         [`${prefixCls}-disabled`]: disabled,
         [`${prefixCls}-customize-list`]: !!children,
       });
       const titles = this.getTitles(locale);
       return (
-        <div class={cls}>
+        <div class={cls} style={style}>
           <List
             key="leftList"
             prefixCls={`${prefixCls}-list`}
@@ -403,7 +405,7 @@ const Transfer = {
             checkedKeys={sourceSelectedKeys}
             handleFilter={this.handleLeftFilter}
             handleClear={this.handleLeftClear}
-            handleSelect={this.handleLeftSelect}
+            // handleSelect={this.handleLeftSelect}
             handleSelectAll={this.handleLeftSelectAll}
             onItemSelect={this.onLeftItemSelect}
             onItemSelectAll={this.onLeftItemSelectAll}
@@ -444,7 +446,7 @@ const Transfer = {
             checkedKeys={targetSelectedKeys}
             handleFilter={this.handleRightFilter}
             handleClear={this.handleRightClear}
-            handleSelect={this.handleRightSelect}
+            // handleSelect={this.handleRightSelect}
             handleSelectAll={this.handleRightSelectAll}
             onItemSelect={this.onRightItemSelect}
             onItemSelectAll={this.onRightItemSelectAll}
@@ -472,16 +474,15 @@ const Transfer = {
       <LocaleReceiver
         componentName="Transfer"
         defaultLocale={defaultLocale.Transfer}
-        scopedSlots={{ default: this.renderTransfer }}
+        children={this.renderTransfer}
       />
     );
   },
 };
 
 /* istanbul ignore next */
-Transfer.install = function(Vue) {
-  Vue.use(Base);
-  Vue.component(Transfer.name, Transfer);
+Transfer.install = function(app) {
+  app.component(Transfer.name, Transfer);
 };
 
 export default Transfer;

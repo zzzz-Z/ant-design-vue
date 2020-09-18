@@ -1,5 +1,4 @@
 import { mount } from '@vue/test-utils';
-import { renderToString } from '@vue/server-test-utils';
 import List from '../list';
 
 const listCommonProps = {
@@ -27,15 +26,15 @@ const listCommonProps = {
 describe('List', () => {
   it('should render correctly', () => {
     const props = {
-      propsData: listCommonProps,
+      props: listCommonProps,
     };
-    const wrapper = renderToString(List, props);
-    expect(wrapper).toMatchSnapshot();
+    const wrapper = mount(List, props);
+    expect(wrapper.html()).toMatchSnapshot();
   });
 
   it('should check top Checkbox while all available items are checked', () => {
     const props = {
-      propsData: {
+      props: {
         ...listCommonProps,
         checkedKeys: ['a', 'b'],
       },
@@ -43,8 +42,7 @@ describe('List', () => {
     const wrapper = mount(List, props);
     expect(
       wrapper
-        .find('.ant-transfer-list-header')
-        .find({
+        .findComponent({
           name: 'ACheckbox',
         })
         .props().checked,

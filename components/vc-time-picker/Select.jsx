@@ -1,7 +1,8 @@
 import PropTypes from '../_util/vue-types';
 import BaseMixin from '../_util/BaseMixin';
-import classnames from 'classnames';
+import classnames from '../_util/classNames';
 import raf from 'raf';
+import { findDOMNode } from '../_util/props-util';
 
 function noop() {}
 const scrollTo = (element, to, duration) => {
@@ -23,7 +24,9 @@ const scrollTo = (element, to, duration) => {
 };
 
 const Select = {
+  name: 'Select',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: {
     prefixCls: PropTypes.string,
     options: PropTypes.array,
@@ -83,7 +86,7 @@ const Select = {
             class={cls}
             key={index}
             disabled={item.disabled}
-            tabIndex="0"
+            tabindex="0"
             onKeydown={onKeyDown}
           >
             {item.value}
@@ -101,9 +104,13 @@ const Select = {
       this.setState({ active: false });
     },
 
+    saveList(node) {
+      this.list = node;
+    },
+
     scrollToSelected(duration) {
       // move to selected item
-      const select = this.$el;
+      const select = findDOMNode(this);
       const list = this.$refs.list;
       if (!list) {
         return;
@@ -131,7 +138,7 @@ const Select = {
 
     return (
       <div class={cls} onMouseenter={this.handleMouseEnter} onMouseleave={this.handleMouseLeave}>
-        <ul ref="list">{this.getOptions()}</ul>
+        <ul ref={this.saveList}>{this.getOptions()}</ul>
       </div>
     );
   },

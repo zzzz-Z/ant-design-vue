@@ -1,5 +1,5 @@
 import { inject, provide, nextTick } from 'vue';
-import classnames from 'classnames';
+import classnames from '../_util/classNames';
 import omit from 'omit.js';
 import VcDrawer from '../vc-drawer/src';
 import PropTypes from '../_util/vue-types';
@@ -34,6 +34,8 @@ const Drawer = {
     handle: PropTypes.any,
     afterVisibleChange: PropTypes.func,
     keyboard: PropTypes.bool.def(true),
+    onClose: PropTypes.func,
+    'onUpdate:visible': PropTypes.func,
   },
   mixins: [BaseMixin],
   data() {
@@ -49,17 +51,6 @@ const Drawer = {
       configProvider,
     };
   },
-  // inject: {
-  //   parentDrawer: {
-  //     default: () => null,
-  //   },
-  //   configProvider: { default: () => ConfigConsumerProps },
-  // },
-  // provide() {
-  //   return {
-  //     parentDrawer: this,
-  //   };
-  // },
   beforeCreate() {
     const parentDrawer = inject('parentDrawer', null);
     provide('parentDrawer', this);
@@ -85,7 +76,7 @@ const Drawer = {
       this.preVisible = this.visible;
     });
   },
-  beforeDestroy() {
+  beforeUnmount() {
     // unmount drawer in child, clear push.
     if (this.parentDrawer) {
       this.parentDrawer.pull();
@@ -93,6 +84,7 @@ const Drawer = {
   },
   methods: {
     close(e) {
+      this.$emit('update:visible', false);
       this.$emit('close', e);
     },
     // onMaskClick(e) {
@@ -221,7 +213,7 @@ const Drawer = {
     const handler = getComponent(this, 'handle') || false;
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('drawer', customizePrefixCls);
-
+    const { class: className } = this.$attrs;
     const vcDrawerProps = {
       ...this.$attrs,
       ...omit(rest, [
@@ -241,13 +233,15 @@ const Drawer = {
         'pageHeader',
         'autoInsertSpaceInButton',
       ]),
+      onClose: this.close,
       handler,
       ...offsetStyle,
       prefixCls,
       open: visible,
       showMask: mask,
       placement,
-      className: classnames({
+      class: classnames({
+        [className]: !!className,
         [wrapClassName]: !!wrapClassName,
         [haveMask]: !!haveMask,
       }),

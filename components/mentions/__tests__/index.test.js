@@ -1,9 +1,10 @@
 import { mount } from '@vue/test-utils';
-import Vue from 'vue';
 import Mentions from '..';
 import focusTest from '../../../tests/shared/focusTest';
+import { sleep } from '../../../tests/utils';
+import KeyCode from '../../_util/KeyCode';
 
-const { getMentions } = Mentions;
+const { getMentions, Option } = Mentions;
 
 function $$(className) {
   return document.body.querySelectorAll(className);
@@ -18,12 +19,8 @@ function triggerInput(wrapper, text = '') {
 }
 
 describe('Mentions', () => {
-  beforeAll(() => {
-    jest.useFakeTimers();
-  });
-
-  afterAll(() => {
-    jest.useRealTimers();
+  beforeEach(() => {
+    document.body.innerHTML = '';
   });
 
   it('getMentions', () => {
@@ -40,50 +37,66 @@ describe('Mentions', () => {
     ]);
   });
 
-  it('focus', () => {
+  it('focus', async () => {
     const onFocus = jest.fn();
     const onBlur = jest.fn();
 
-    const wrapper = mount({
-      render() {
-        return <Mentions onFocus={onFocus} onBlur={onBlur} />;
+    const wrapper = mount(
+      {
+        render() {
+          return <Mentions onFocus={onFocus} onBlur={onBlur} />;
+        },
       },
-    });
+      { sync: false, attachTo: 'body' },
+    );
+    await sleep();
     wrapper.find('textarea').trigger('focus');
+    await sleep();
     expect(wrapper.find('.ant-mentions').classes('ant-mentions-focused')).toBeTruthy();
     expect(onFocus).toHaveBeenCalled();
-
     wrapper.find('textarea').trigger('blur');
-    jest.runAllTimers();
+    await sleep(500);
     expect(wrapper.classes()).not.toContain('ant-mentions-focused');
     expect(onBlur).toHaveBeenCalled();
   });
 
-  it('loading', done => {
+  it('loading', async () => {
     const wrapper = mount(
       {
         render() {
           return <Mentions loading />;
         },
       },
-      { sync: false },
+      { sync: false, attachTo: 'body' },
     );
+    await sleep(500);
     triggerInput(wrapper, '@');
-    Vue.nextTick(() => {
-      mount(
-        {
-          render() {
-            return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-          },
-        },
-        { sync: false },
-      );
-      Vue.nextTick(() => {
-        expect($$('.ant-mentions-dropdown-menu-item').length).toBeTruthy();
-        expect($$('.ant-spin')).toBeTruthy();
-        done();
-      });
+    await sleep(500);
+    expect($$('.ant-mentions-dropdown-menu-item').length).toBeTruthy();
+    expect($$('.ant-spin')).toBeTruthy();
+  });
+
+  it('notExist', async () => {
+    const wrapper = mount({
+      render() {
+        return (
+          <Mentions>
+            <Option value="bamboo">Bamboo</Option>
+            <Option value="light">Light</Option>
+            <Option value="cat">Cat</Option>
+          </Mentions>
+        );
+      },
     });
+
+    triggerInput(wrapper, '@notExist');
+    jest.runAllTimers();
+
+    wrapper.find('textarea').element.keyCode = KeyCode.ENTER;
+    wrapper.find('textarea').trigger('keydown');
+    jest.runAllTimers();
+
+    expect(wrapper.find('textarea').element.value).toBe('@notExist');
   });
 
   focusTest(Mentions);

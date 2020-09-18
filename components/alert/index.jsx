@@ -8,11 +8,11 @@ import CheckCircleFilled from '@ant-design/icons-vue/CheckCircleFilled';
 import ExclamationCircleFilled from '@ant-design/icons-vue/ExclamationCircleFilled';
 import InfoCircleFilled from '@ant-design/icons-vue/InfoCircleFilled';
 import CloseCircleFilled from '@ant-design/icons-vue/CloseCircleFilled';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import BaseMixin from '../_util/BaseMixin';
 import PropTypes from '../_util/vue-types';
 import getTransitionProps from '../_util/getTransitionProps';
-import { getComponent, isValidElement } from '../_util/props-util';
+import { getComponent, isValidElement, findDOMNode } from '../_util/props-util';
 import { ConfigConsumerProps } from '../config-provider';
 
 function noop() {}
@@ -53,6 +53,7 @@ export const AlertProps = {
   prefixCls: PropTypes.string,
   banner: PropTypes.bool,
   icon: PropTypes.any,
+  onClose: PropTypes.func,
 };
 
 const Alert = {
@@ -73,7 +74,7 @@ const Alert = {
   methods: {
     handleClose(e) {
       e.preventDefault();
-      const dom = this.$el;
+      const dom = findDOMNode(this);
       dom.style.height = `${dom.offsetHeight}px`;
       // Magic code
       // 重复一次后才能正确设置 height
@@ -95,7 +96,7 @@ const Alert = {
 
   render() {
     const { prefixCls: customizePrefixCls, banner, closing, closed } = this;
-    const getPrefixCls = this.configProvider().getPrefixCls;
+    const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('alert', customizePrefixCls);
 
     let { closable, type, showIcon } = this;
@@ -125,7 +126,7 @@ const Alert = {
     });
 
     const closeIcon = closable ? (
-      <a type="button" onClick={this.handleClose} class={`${prefixCls}-close-icon`} tabIndex={0}>
+      <a type="button" onClick={this.handleClose} class={`${prefixCls}-close-icon`} tabindex={0}>
         {closeText ? <span class={`${prefixCls}-close-text`}>{closeText}</span> : <CloseOutlined />}
       </a>
     ) : null;
@@ -142,7 +143,7 @@ const Alert = {
 
     const transitionProps = getTransitionProps(`${prefixCls}-slide-up`, {
       appear: false,
-      afterLeave: this.animationEnd,
+      onAfterLeave: this.animationEnd,
     });
     return closed ? null : (
       <Transition {...transitionProps}>

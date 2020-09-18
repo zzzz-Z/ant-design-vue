@@ -22,28 +22,20 @@ const DrawerCom = {
     },
   },
   render() {
-    const drawerProps = {
-      props: {
-        destroyOnClose: true,
-        getContainer: false,
-        visible: false,
-        wrapClassName: this.wrapClassName,
-      },
-    };
-    return <Drawer {...drawerProps}>Here is content of Drawer</Drawer>;
+    return <Drawer {...this.$props}>Here is content of Drawer</Drawer>;
   },
 };
 
 describe('Drawer', () => {
   it('render correctly', async () => {
     const props = {
-      propsData: {
+      props: {
         visible: true,
         width: 400,
         getContainer: false,
       },
       slots: {
-        default: ['Here is content of Drawer'],
+        default: () => ['Here is content of Drawer'],
       },
       sync: false,
     };
@@ -55,14 +47,14 @@ describe('Drawer', () => {
 
   it('render top drawer', async () => {
     const props = {
-      propsData: {
+      props: {
         visible: true,
         height: 400,
         placement: 'top',
         getContainer: false,
       },
       slots: {
-        default: 'Here is content of Drawer',
+        default: () => 'Here is content of Drawer',
       },
       sync: false,
     };
@@ -74,13 +66,13 @@ describe('Drawer', () => {
 
   it('have a title', async () => {
     const props = {
-      propsData: {
+      props: {
         visible: true,
         title: 'Test Title',
         getContainer: false,
       },
       slots: {
-        default: 'Here is content of Drawer',
+        default: () => 'Here is content of Drawer',
       },
       sync: false,
     };
@@ -92,13 +84,13 @@ describe('Drawer', () => {
 
   it('closable is false', async () => {
     const props = {
-      propsData: {
+      props: {
         visible: true,
         closable: false,
         getContainer: false,
       },
       slots: {
-        default: 'Here is content of Drawer',
+        default: () => 'Here is content of Drawer',
       },
       sync: false,
     };
@@ -110,13 +102,13 @@ describe('Drawer', () => {
 
   it('destroyOnClose is true', async () => {
     const props = {
-      propsData: {
+      props: {
         destroyOnClose: true,
         closable: false,
         getContainer: false,
       },
       slots: {
-        default: 'Here is content of Drawer',
+        default: () => 'Here is content of Drawer',
       },
       sync: false,
     };
@@ -128,7 +120,7 @@ describe('Drawer', () => {
 
   it('class is test_drawer', async () => {
     const props = {
-      propsData: {
+      props: {
         wrapClassName: 'test_drawer',
       },
       sync: false,

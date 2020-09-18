@@ -1,4 +1,5 @@
-import { initDefaultProps } from '../_util/props-util';
+import { provide, Transition } from 'vue';
+import { initDefaultProps, getSlot, findDOMNode } from '../_util/props-util';
 import KeyCode from '../_util/KeyCode';
 import contains from '../vc-util/Dom/contains';
 import LazyRenderBox from './LazyRenderBox';
@@ -48,7 +49,9 @@ function offset(el) {
 let cacheOverflow = {};
 
 export default {
+  name: 'VcDialog',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: initDefaultProps(IDialogPropTypes, {
     mask: true,
     visible: false,
@@ -62,30 +65,21 @@ export default {
   }),
   data() {
     return {
-      destroyPopup: false,
-    };
-  },
-
-  provide() {
-    return {
-      dialogContext: this,
+      inTransition: false,
+      titleId: `rcDialogTitle${uuid++}`,
+      dialogMouseDown: undefined,
     };
   },
 
   watch: {
     visible(val) {
-      if (val) {
-        this.destroyPopup = false;
-      }
       this.$nextTick(() => {
         this.updatedCallback(!val);
       });
     },
   },
-
-  beforeMount() {
-    this.inTransition = false;
-    this.titleId = `rcDialogTitle${uuid++}`;
+  created() {
+    provide('dialogContext', this);
   },
   mounted() {
     this.$nextTick(() => {
@@ -96,7 +90,7 @@ export default {
       }
     });
   },
-  beforeDestroy() {
+  beforeUnmount() {
     const { visible, getOpenCount } = this;
     if ((visible || this.inTransition) && !getOpenCount()) {
       this.switchScrollingEffect();
@@ -119,7 +113,7 @@ export default {
           this.switchScrollingEffect();
           // this.$refs.wrap.focus()
           this.tryFocus();
-          const dialogNode = this.$refs.dialog.$el;
+          const dialogNode = findDOMNode(this.$refs.dialog);
           if (mousePosition) {
             const elOffset = offset(dialogNode);
             setTransformOrigin(
@@ -149,14 +143,11 @@ export default {
       }
     },
     onAnimateLeave() {
-      const { afterClose, destroyOnClose } = this;
+      const { afterClose } = this;
       // need demo?
       // https://github.com/react-component/dialog/pull/28
       if (this.$refs.wrap) {
         this.$refs.wrap.style.display = 'none';
-      }
-      if (destroyOnClose) {
-        this.destroyPopup = true;
       }
       this.inTransition = false;
       this.switchScrollingEffect();
@@ -264,12 +255,10 @@ export default {
           </button>
         );
       }
-
-      const style = dest;
+      const { style: stl, class: className } = this.$attrs;
+      const style = { ...stl, ...dest };
       const sentinelStyle = { width: 0, height: 0, overflow: 'hidden' };
-      const cls = {
-        [prefixCls]: true,
-      };
+      const cls = [prefixCls, className, dialogClass];
       const transitionName = this.getTransitionName();
       const dialogElement = (
         <LazyRenderBox
@@ -278,29 +267,29 @@ export default {
           role="document"
           ref="dialog"
           style={style}
-          class={[cls, dialogClass]}
+          class={cls}
           forceRender={forceRender}
           onMousedown={this.onDialogMouseDown}
         >
-          <div tabIndex={0} ref="sentinelStart" style={sentinelStyle} aria-hidden="true" />
+          <div tabindex={0} ref="sentinelStart" style={sentinelStyle} aria-hidden="true" />
           <div class={`${prefixCls}-content`}>
             {closer}
             {header}
             <div key="body" class={`${prefixCls}-body`} style={bodyStyle} ref="body" {...bodyProps}>
-              {this.$slots.default}
+              {getSlot(this)}
             </div>
             {footer}
           </div>
-          <div tabIndex={0} ref="sentinelEnd" style={sentinelStyle} aria-hidden="true" />
+          <div tabindex={0} ref="sentinelEnd" style={sentinelStyle} aria-hidden="true" />
         </LazyRenderBox>
       );
       const dialogTransitionProps = getTransitionProps(transitionName, {
-        afterLeave: this.onAnimateLeave,
+        onAfterLeave: this.onAnimateLeave,
       });
       return (
-        <transition key="dialog" {...dialogTransitionProps}>
-          {visible || !this.destroyPopup ? dialogElement : null}
-        </transition>
+        <Transition key="dialog" {...dialogTransitionProps}>
+          {visible || !this.destroyOnClose ? dialogElement : null}
+        </Transition>
       );
     },
     getZIndexStyle() {
@@ -322,22 +311,24 @@ export default {
       let maskElement;
       if (props.mask) {
         const maskTransition = this.getMaskTransitionName();
-        maskElement = (
+        const tempMaskElement = (
           <LazyRenderBox
             v-show={props.visible}
             style={this.getMaskStyle()}
             key="mask"
             class={`${props.prefixCls}-mask`}
-            {...props.maskProps}
+            {...(props.maskProps || {})}
           />
         );
         if (maskTransition) {
           const maskTransitionProps = getTransitionProps(maskTransition);
           maskElement = (
-            <transition key="mask" {...maskTransitionProps}>
-              {maskElement}
-            </transition>
+            <Transition key="mask" {...maskTransitionProps}>
+              {tempMaskElement}
+            </Transition>
           );
+        } else {
+          maskElement = tempMaskElement;
         }
       }
       return maskElement;
@@ -422,7 +413,7 @@ export default {
       <div class={`${prefixCls}-root`}>
         {this.getMaskElement()}
         <div
-          tabIndex={-1}
+          tabindex={-1}
           onKeydown={this.onKeydown}
           class={`${prefixCls}-wrap ${wrapClassName || ''}`}
           ref="wrap"

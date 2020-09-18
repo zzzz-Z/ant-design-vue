@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import classNames from '../../../_util/classNames';
 import warning from '../../../_util/warning';
 
 const calcPoints = (vertical, marks, dots, step, min, max) => {
@@ -20,49 +20,47 @@ const calcPoints = (vertical, marks, dots, step, min, max) => {
   return points;
 };
 
-const Steps = {
-  functional: true,
-  render(h, context) {
-    const {
-      prefixCls,
-      vertical,
-      reverse,
-      marks,
-      dots,
-      step,
-      included,
-      lowerBound,
-      upperBound,
-      max,
-      min,
-      dotStyle,
-      activeDotStyle,
-    } = context.props;
-    const range = max - min;
-    const elements = calcPoints(vertical, marks, dots, step, min, max).map(point => {
-      const offset = `${(Math.abs(point - min) / range) * 100}%`;
+const Steps = (_, { attrs }) => {
+  const {
+    prefixCls,
+    vertical,
+    reverse,
+    marks,
+    dots,
+    step,
+    included,
+    lowerBound,
+    upperBound,
+    max,
+    min,
+    dotStyle,
+    activeDotStyle,
+  } = attrs;
+  const range = max - min;
+  const elements = calcPoints(vertical, marks, dots, step, min, max).map(point => {
+    const offset = `${(Math.abs(point - min) / range) * 100}%`;
 
-      const isActived =
-        (!included && point === upperBound) ||
-        (included && point <= upperBound && point >= lowerBound);
-      let style = vertical
-        ? { ...dotStyle, [reverse ? 'top' : 'bottom']: offset }
-        : { ...dotStyle, [reverse ? 'right' : 'left']: offset };
-      if (isActived) {
-        style = { ...style, ...activeDotStyle };
-      }
+    const isActived =
+      (!included && point === upperBound) ||
+      (included && point <= upperBound && point >= lowerBound);
+    let style = vertical
+      ? { ...dotStyle, [reverse ? 'top' : 'bottom']: offset }
+      : { ...dotStyle, [reverse ? 'right' : 'left']: offset };
+    if (isActived) {
+      style = { ...style, ...activeDotStyle };
+    }
 
-      const pointClassName = classNames({
-        [`${prefixCls}-dot`]: true,
-        [`${prefixCls}-dot-active`]: isActived,
-        [`${prefixCls}-dot-reverse`]: reverse,
-      });
-
-      return <span class={pointClassName} style={style} key={point} />;
+    const pointClassName = classNames({
+      [`${prefixCls}-dot`]: true,
+      [`${prefixCls}-dot-active`]: isActived,
+      [`${prefixCls}-dot-reverse`]: reverse,
     });
 
-    return <div class={`${prefixCls}-step`}>{elements}</div>;
-  },
+    return <span class={pointClassName} style={style} key={point} />;
+  });
+
+  return <div class={`${prefixCls}-step`}>{elements}</div>;
 };
 
+Steps.inheritAttrs = false;
 export default Steps;

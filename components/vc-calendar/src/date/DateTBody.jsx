@@ -1,6 +1,6 @@
 import PropTypes from '../../../_util/vue-types';
-import { getOptionProps, getListeners } from '../../../_util/props-util';
-import cx from 'classnames';
+import { getOptionProps } from '../../../_util/props-util';
+import cx from '../../../_util/classNames';
 import DateConstants from './DateConstants';
 import { getTitleString, getTodayTime } from '../util/';
 function noop() {}
@@ -27,6 +27,8 @@ function getIdFromDate(date) {
 }
 
 const DateTBody = {
+  name: 'DateTBody',
+  inheritAttrs: false,
   props: {
     contentRender: PropTypes.func,
     dateRender: PropTypes.func,
@@ -50,7 +52,7 @@ const DateTBody = {
       disabledDate,
       hoverValue,
     } = props;
-    const { select = noop, dayHover = noop } = getListeners(this);
+    const { onSelect = noop, onDayHover = noop } = this.$attrs;
     let iIndex;
     let jIndex;
     let current;
@@ -209,9 +211,9 @@ const DateTBody = {
 
         let dateHtml;
         if (dateRender) {
-          dateHtml = dateRender(current, value);
+          dateHtml = dateRender({ current, today: value });
         } else {
-          const content = contentRender ? contentRender(current, value) : current.date();
+          const content = contentRender ? contentRender({ current, today: value }) : current.date();
           dateHtml = (
             <div
               key={getIdFromDate(current)}
@@ -227,8 +229,8 @@ const DateTBody = {
         dateCells.push(
           <td
             key={passed}
-            onClick={disabled ? noop : select.bind(null, current)}
-            onMouseenter={disabled ? noop : dayHover.bind(null, current)}
+            onClick={disabled ? noop : onSelect.bind(null, current)}
+            onMouseenter={disabled ? noop : onDayHover.bind(null, current)}
             role="gridcell"
             title={getTitleString(current)}
             class={cls}

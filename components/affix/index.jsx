@@ -1,6 +1,6 @@
 import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import omit from 'omit.js';
 import ResizeObserver from '../vc-resize-observer';
 import BaseMixin from '../_util/BaseMixin';
@@ -31,8 +31,10 @@ const AffixProps = {
   /** 固定状态改变时触发的回调函数 */
   // onChange?: (affixed?: boolean) => void;
   /** 设置 Affix 需要监听其滚动事件的元素，值为一个返回对应 DOM 元素的函数 */
-  target: PropTypes.func.def(() => getDefaultTarget),
+  target: PropTypes.func.def(getDefaultTarget),
   prefixCls: PropTypes.string,
+  onChange: PropTypes.func,
+  onTestUpdatePosition: PropTypes.func,
 };
 const AffixStatus = {
   None: 'none',
@@ -98,7 +100,7 @@ const Affix = {
       this.updatePosition();
     },
   },
-  beforeDestroy() {
+  beforeUnmount() {
     clearTimeout(this.timeout);
     removeObserveTarget(this);
     this.updatePosition.cancel();
@@ -239,7 +241,6 @@ const Affix = {
     const className = classNames({
       [getPrefixCls('affix', prefixCls)]: affixStyle,
     });
-
     const props = omit($props, ['prefixCls', 'offsetTop', 'offsetBottom', 'target']);
     return (
       <ResizeObserver

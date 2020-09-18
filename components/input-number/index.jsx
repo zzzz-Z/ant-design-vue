@@ -1,11 +1,11 @@
+import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
-import { initDefaultProps, getOptionProps, getListeners } from '../_util/props-util';
-import classNames from 'classnames';
+import { initDefaultProps, getOptionProps } from '../_util/props-util';
+import classNames from '../_util/classNames';
 import UpOutlined from '@ant-design/icons-vue/UpOutlined';
 import DownOutlined from '@ant-design/icons-vue/DownOutlined';
 import VcInputNumber from '../vc-input-number/src';
 import { ConfigConsumerProps } from '../config-provider';
-import Base from '../base';
 
 export const InputNumberProps = {
   prefixCls: PropTypes.string,
@@ -14,7 +14,7 @@ export const InputNumberProps = {
   value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   step: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   defaultValue: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-  tabIndex: PropTypes.number,
+  tabindex: PropTypes.number,
   disabled: PropTypes.bool,
   size: PropTypes.oneOf(['large', 'small', 'default']),
   formatter: PropTypes.func,
@@ -24,61 +24,73 @@ export const InputNumberProps = {
   name: PropTypes.string,
   id: PropTypes.string,
   precision: PropTypes.number,
-  autoFocus: PropTypes.bool,
+  autofocus: PropTypes.bool,
 };
 
 const InputNumber = {
   name: 'AInputNumber',
-  model: {
-    prop: 'value',
-    event: 'change',
-  },
+  inheritAttrs: false,
   props: initDefaultProps(InputNumberProps, {
     step: 1,
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
+  },
+  mounted() {
+    this.$nextTick(() => {
+      if (process.env.NODE_ENV === 'test') {
+        if (this.autofocus && !this.disabled) {
+          this.focus();
+        }
+      }
+    });
   },
   methods: {
+    saveInputNumber(inputNumberRef) {
+      this.inputNumberRef = inputNumberRef;
+    },
     focus() {
-      this.$refs.inputNumberRef.focus();
+      this.inputNumberRef.focus();
     },
     blur() {
-      this.$refs.inputNumberRef.blur();
+      this.inputNumberRef.blur();
     },
   },
 
   render() {
-    const { prefixCls: customizePrefixCls, size, ...others } = getOptionProps(this);
+    const { prefixCls: customizePrefixCls, size, class: className, ...others } = {
+      ...getOptionProps(this),
+      ...this.$attrs,
+    };
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('input-number', customizePrefixCls);
 
-    const inputNumberClass = classNames({
-      [`${prefixCls}-lg`]: size === 'large',
-      [`${prefixCls}-sm`]: size === 'small',
-    });
+    const inputNumberClass = classNames(
+      {
+        [`${prefixCls}-lg`]: size === 'large',
+        [`${prefixCls}-sm`]: size === 'small',
+      },
+      className,
+    );
     const upIcon = <UpOutlined class={`${prefixCls}-handler-up-inner`} />;
     const downIcon = <DownOutlined class={`${prefixCls}-handler-down-inner`} />;
 
     const vcInputNumberprops = {
-      props: {
-        prefixCls,
-        upHandler: upIcon,
-        downHandler: downIcon,
-        ...others,
-      },
+      prefixCls,
+      upHandler: upIcon,
+      downHandler: downIcon,
+      ...others,
       class: inputNumberClass,
-      ref: 'inputNumberRef',
-      on: getListeners(this),
     };
-    return <VcInputNumber {...vcInputNumberprops} />;
+    return <VcInputNumber {...vcInputNumberprops} ref={this.saveInputNumber} />;
   },
 };
 
 /* istanbul ignore next */
-InputNumber.install = function(Vue) {
-  Vue.use(Base);
-  Vue.component(InputNumber.name, InputNumber);
+InputNumber.install = function(app) {
+  app.component(InputNumber.name, InputNumber);
 };
 
 export default InputNumber;

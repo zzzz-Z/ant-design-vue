@@ -14,35 +14,27 @@ describe('DropdownButton', () => {
     };
 
     const wrapper = mount(Dropdown.Button, {
-      propsData: props,
-      listeners: {
-        visibleChange: () => {},
-      },
+      props,
     });
-    const dropdownProps = wrapper.find({ name: 'ADropdown' }).props();
-
+    const dropdownProps = wrapper.findComponent({ name: 'ADropdown' }).props();
     Object.keys(props).forEach(key => {
-      expect(dropdownProps[key]).toBe(props[key]);
+      expect(dropdownProps[key]).toStrictEqual(props[key]);
     });
   });
 
   it("don't pass visible to Dropdown if it's not exits", () => {
-    const wrapper = mount({
-      render() {
-        return (
-          <Dropdown.Button
-            overlay={
-              <Menu>
-                <Menu.Item>foo</Menu.Item>
-              </Menu>
-            }
-          />
-        );
+    const wrapper = mount(Dropdown.Button, {
+      props: {
+        overlay: (
+          <Menu>
+            <Menu.Item>foo</Menu.Item>
+          </Menu>
+        ),
       },
     });
-    const dropdownProps = wrapper.find({ name: 'ADropdown' }).props();
+    const dropdownProps = wrapper.findComponent({ name: 'ADropdown' }).props();
 
-    expect('visible' in dropdownProps).toBe(false);
+    expect(dropdownProps.visible).toBe(undefined);
   });
 
   it('should support href like Button', () => {

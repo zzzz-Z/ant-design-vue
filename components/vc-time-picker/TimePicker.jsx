@@ -1,11 +1,11 @@
 import moment from 'moment';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import PropTypes from '../_util/vue-types';
 import BaseMixin from '../_util/BaseMixin';
 import {
   initDefaultProps,
   hasProp,
-  getComponentFromProp,
+  getComponent,
   isValidElement,
   getEvents,
 } from '../_util/props-util';
@@ -15,10 +15,14 @@ import Panel from './Panel';
 import placements from './placements';
 
 function noop() {}
+function refFn(field, component) {
+  this[field] = component;
+}
 
 export default {
   name: 'VcTimePicker',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: initDefaultProps(
     {
       prefixCls: PropTypes.string,
@@ -58,14 +62,14 @@ export default {
       // onFocus: PropTypes.func,
       // onBlur: PropTypes.func,
       name: PropTypes.string,
-      autoComplete: PropTypes.string,
+      autocomplete: PropTypes.string,
       use12Hours: PropTypes.bool,
       hourStep: PropTypes.number,
       minuteStep: PropTypes.number,
       secondStep: PropTypes.number,
       focusOnOpen: PropTypes.bool,
       // onKeyDown: PropTypes.func,
-      autoFocus: PropTypes.bool,
+      autofocus: PropTypes.bool,
       id: PropTypes.string,
       inputIcon: PropTypes.any,
       clearIcon: PropTypes.any,
@@ -93,6 +97,8 @@ export default {
     },
   ),
   data() {
+    this.saveInputRef = refFn.bind(this, 'picker');
+    this.savePanelRef = refFn.bind(this, 'panelInstance');
     const { defaultOpen, defaultValue, open = defaultOpen, value = defaultValue } = this;
     return {
       sOpen: open,
@@ -116,7 +122,7 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
-      if (this.autoFocus) {
+      if (this.autofocus) {
         this.focus();
       }
     });
@@ -205,12 +211,12 @@ export default {
         secondStep,
         sValue,
       } = this;
-      const clearIcon = getComponentFromProp(this, 'clearIcon');
+      const clearIcon = getComponent(this, 'clearIcon');
       return (
         <Panel
           clearText={clearText}
           prefixCls={`${prefixCls}-panel`}
-          ref="panel"
+          ref={this.savePanelRef}
           value={sValue}
           inputReadOnly={inputReadOnly}
           onChange={this.onPanelChange}
@@ -278,11 +284,11 @@ export default {
     },
 
     focus() {
-      this.$refs.picker.focus();
+      this.picker.focus();
     },
 
     blur() {
-      this.$refs.picker.blur();
+      this.picker.blur();
     },
     onFocus(e) {
       this.__emit('focus', e);
@@ -296,15 +302,13 @@ export default {
       if (!allowEmpty || !sValue || disabled) {
         return null;
       }
-      const clearIcon = getComponentFromProp(this, 'clearIcon');
+      const clearIcon = getComponent(this, 'clearIcon');
       if (isValidElement(clearIcon)) {
-        const { click } = getEvents(clearIcon) || {};
+        const { onClick } = getEvents(clearIcon) || {};
         return cloneElement(clearIcon, {
-          on: {
-            click: (...args) => {
-              if (click) click(...args);
-              this.onClear(...args);
-            },
+          onClick: (...args) => {
+            if (onClick) onClick(...args);
+            this.onClear(...args);
           },
         });
       }
@@ -315,7 +319,7 @@ export default {
           class={`${prefixCls}-clear`}
           title={clearText}
           onClick={this.onClear}
-          tabIndex={0}
+          tabindex={0}
         >
           {clearIcon || <i class={`${prefixCls}-clear-icon`} />}
         </a>
@@ -334,8 +338,8 @@ export default {
       transitionName,
       getPopupContainer,
       name,
-      autoComplete,
-      autoFocus,
+      autocomplete,
+      autofocus,
       inputReadOnly,
       sOpen,
       sValue,
@@ -343,8 +347,9 @@ export default {
       onBlur,
       popupStyle,
     } = this;
+    const { class: className, style } = this.$attrs;
     const popupClassName = this.getPopupClassName();
-    const inputIcon = getComponentFromProp(this, 'inputIcon');
+    const inputIcon = getComponent(this, 'inputIcon');
     return (
       <Trigger
         prefixCls={`${prefixCls}-panel`}
@@ -359,23 +364,23 @@ export default {
         popupTransitionName={transitionName}
         popupVisible={sOpen}
         onPopupVisibleChange={this.onVisibleChange}
+        popup={this.getPanelElement()}
       >
-        <template slot="popup">{this.getPanelElement()}</template>
-        <span class={`${prefixCls}`}>
+        <span class={classNames(prefixCls, className)} style={style}>
           <input
             class={`${prefixCls}-input`}
-            ref="picker"
+            ref={this.saveInputRef}
             type="text"
             placeholder={placeholder}
             name={name}
             onKeydown={this.onKeyDown}
             disabled={disabled}
             value={(sValue && sValue.format(this.getFormat())) || ''}
-            autoComplete={autoComplete}
+            autocomplete={autocomplete}
             onFocus={onFocus}
             onBlur={onBlur}
-            autoFocus={autoFocus}
-            readOnly={!!inputReadOnly}
+            autofocus={autofocus}
+            readonly={!!inputReadOnly}
             id={id}
           />
           {inputIcon || <span class={`${prefixCls}-icon`} />}

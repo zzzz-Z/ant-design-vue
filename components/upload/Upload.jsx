@@ -1,10 +1,9 @@
-import classNames from 'classnames';
-import uniqBy from 'lodash/uniqBy';
-import findIndex from 'lodash/findIndex';
-import pick from 'lodash/pick';
+import classNames from '../_util/classNames';
+import uniqBy from 'lodash-es/uniqBy';
+import findIndex from 'lodash-es/findIndex';
 import VcUpload from '../vc-upload';
 import BaseMixin from '../_util/BaseMixin';
-import { getOptionProps, initDefaultProps, hasProp, getListeners } from '../_util/props-util';
+import { getOptionProps, initDefaultProps, hasProp, getSlot } from '../_util/props-util';
 import LocaleReceiver from '../locale-provider/LocaleReceiver';
 import defaultLocale from '../locale-provider/default';
 import { ConfigConsumerProps } from '../config-provider';
@@ -12,6 +11,8 @@ import Dragger from './Dragger';
 import UploadList from './UploadList';
 import { UploadProps } from './interface';
 import { T, fileToObject, genPercentAdd, getFileItem, removeFileItem } from './utils';
+import { inject } from 'vue';
+import { getDataAndAria } from '../vc-tree/src/util';
 
 export { UploadProps };
 
@@ -32,8 +33,10 @@ export default {
     disabled: false,
     supportServerRender: true,
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   // recentUploadStatus: boolean | PromiseLike<any>;
   data() {
@@ -48,7 +51,7 @@ export default {
       this.sFileList = val || [];
     },
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearProgressTimer();
   },
   methods: {
@@ -62,7 +65,7 @@ export default {
       } else {
         nextFileList[fileIndex] = targetItem;
       }
-      this.onChange({
+      this.handleChange({
         file: targetItem,
         fileList: nextFileList,
       });
@@ -90,7 +93,7 @@ export default {
       targetItem.status = 'done';
       targetItem.response = response;
       targetItem.xhr = xhr;
-      this.onChange({
+      this.handleChange({
         file: { ...targetItem },
         fileList,
       });
@@ -103,7 +106,7 @@ export default {
         return;
       }
       targetItem.percent = e.percent;
-      this.onChange({
+      this.handleChange({
         event: e,
         file: { ...targetItem },
         fileList: this.sFileList,
@@ -120,7 +123,7 @@ export default {
       targetItem.error = error;
       targetItem.response = response;
       targetItem.status = 'error';
-      this.onChange({
+      this.handleChange({
         file: { ...targetItem },
         fileList,
       });
@@ -147,7 +150,7 @@ export default {
             this.upload.abort(file);
           }
 
-          this.onChange({
+          this.handleChange({
             file,
             fileList: removedFileList,
           });
@@ -160,10 +163,11 @@ export default {
       }
       this.handleRemove(file);
     },
-    onChange(info) {
+    handleChange(info) {
       if (!hasProp(this, 'fileList')) {
         this.setState({ sFileList: info.fileList });
       }
+      this.$emit('update:fileList', info.fileList);
       this.$emit('change', info);
     },
     onFileDrop(e) {
@@ -179,7 +183,7 @@ export default {
       }
       const result = beforeUpload(file, fileList);
       if (result === false) {
-        this.onChange({
+        this.handleChange({
           file,
           fileList: uniqBy(stateFileList.concat(fileList.map(fileToObject)), item => item.uid),
         });
@@ -217,20 +221,18 @@ export default {
       } = getOptionProps(this);
       const { showRemoveIcon, showPreviewIcon, showDownloadIcon } = showUploadList;
       const { sFileList: fileList } = this.$data;
+      const { onDownload, onPreview } = this.$props;
       const uploadListProps = {
-        props: {
-          listType,
-          items: fileList,
-          previewFile,
-          showRemoveIcon: !disabled && showRemoveIcon,
-          showPreviewIcon,
-          showDownloadIcon,
-          locale: { ...locale, ...propLocale },
-        },
-        on: {
-          remove: this.handleManualRemove,
-          ...pick(getListeners(this), ['download', 'preview']), // 如果没有配置该事件，不要传递， uploadlist 会有相应逻辑
-        },
+        listType,
+        items: fileList,
+        previewFile,
+        showRemoveIcon: !disabled && showRemoveIcon,
+        showPreviewIcon,
+        showDownloadIcon,
+        locale: { ...locale, ...propLocale },
+        onRemove: this.handleManualRemove,
+        onDownload,
+        onPreview,
       };
       return <UploadList {...uploadListProps} />;
     },
@@ -244,35 +246,31 @@ export default {
       disabled,
     } = getOptionProps(this);
     const { sFileList: fileList, dragState } = this.$data;
+    const { class: className, style } = this.$attrs;
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('upload', customizePrefixCls);
 
     const vcUploadProps = {
-      props: {
-        ...this.$props,
-        prefixCls,
-        beforeUpload: this.reBeforeUpload,
-      },
-      on: {
-        start: this.onStart,
-        error: this.onError,
-        progress: this.onProgress,
-        success: this.onSuccess,
-        reject: this.onReject,
-      },
+      ...this.$props,
+      prefixCls,
+      beforeUpload: this.reBeforeUpload,
+      onStart: this.onStart,
+      onError: this.onError,
+      onProgress: this.onProgress,
+      onSuccess: this.onSuccess,
+      onReject: this.onReject,
       ref: 'uploadRef',
-      attrs: this.$attrs,
     };
 
     const uploadList = showUploadList ? (
       <LocaleReceiver
         componentName="Upload"
         defaultLocale={defaultLocale.Upload}
-        scopedSlots={{ default: this.renderUploadList }}
+        children={this.renderUploadList}
       />
     ) : null;
 
-    const children = this.$slots.default;
+    const children = getSlot(this);
 
     if (type === 'drag') {
       const dragCls = classNames(prefixCls, {
@@ -282,12 +280,13 @@ export default {
         [`${prefixCls}-disabled`]: disabled,
       });
       return (
-        <span>
+        <span class={className} {...getDataAndAria(this.$attrs)}>
           <div
             class={dragCls}
             onDrop={this.onFileDrop}
             onDragover={this.onFileDrop}
             onDragleave={this.onFileDrop}
+            style={style}
           >
             <VcUpload {...vcUploadProps} class={`${prefixCls}-btn`}>
               <div class={`${prefixCls}-drag-container`}>{children}</div>
@@ -307,7 +306,7 @@ export default {
     // Remove id to avoid open by label when trigger is hidden
     // https://github.com/ant-design/ant-design/issues/14298
     if (!children || disabled) {
-      delete vcUploadProps.props.id;
+      delete vcUploadProps.id;
     }
 
     const uploadButton = (
@@ -318,14 +317,14 @@ export default {
 
     if (listType === 'picture-card') {
       return (
-        <span class={`${prefixCls}-picture-card-wrapper`}>
+        <span class={classNames(`${prefixCls}-picture-card-wrapper`, className)}>
           {uploadList}
           {uploadButton}
         </span>
       );
     }
     return (
-      <span>
+      <span class={className}>
         {uploadButton}
         {uploadList}
       </span>

@@ -5,14 +5,14 @@
  *
  * So this file named as Selector to avoid confuse.
  */
+import { inject } from 'vue';
 import { createRef } from '../util';
 import PropTypes from '../../../_util/vue-types';
-import classNames from 'classnames';
-import { initDefaultProps, getComponentFromProp, getListeners } from '../../../_util/props-util';
+import classNames from '../../../_util/classNames';
+import { initDefaultProps, getComponent } from '../../../_util/props-util';
 import BaseMixin from '../../../_util/BaseMixin';
 export const selectorPropTypes = () => ({
   prefixCls: PropTypes.string,
-  className: PropTypes.string,
   open: PropTypes.bool,
   selectorValueList: PropTypes.array,
   allowClear: PropTypes.bool,
@@ -36,6 +36,7 @@ function noop() {}
 export default function(modeName) {
   const BaseSelector = {
     name: 'BaseSelector',
+    inheritAttrs: false,
     mixins: [BaseMixin],
     props: initDefaultProps(
       {
@@ -44,14 +45,16 @@ export default function(modeName) {
         // Pass by HOC
         renderSelection: PropTypes.func.isRequired,
         renderPlaceholder: PropTypes.func,
-        tabIndex: PropTypes.number,
+        tabindex: PropTypes.number,
       },
       {
-        tabIndex: 0,
+        tabindex: 0,
       },
     ),
-    inject: {
-      vcTreeSelect: { default: () => ({}) },
+    setup() {
+      return {
+        vcTreeSelect: inject('vcTreeSelect', {}),
+      };
     },
     created() {
       this.domRef = createRef();
@@ -96,7 +99,7 @@ export default function(modeName) {
         if (!allowClear || !selectorValueList.length || !selectorValueList[0].value) {
           return null;
         }
-        const clearIcon = getComponentFromProp(this, 'clearIcon');
+        const clearIcon = getComponent(this, 'clearIcon');
         return (
           <span key="clear" class={`${prefixCls}-selection__clear`} onClick={onSelectorClear}>
             {clearIcon}
@@ -109,7 +112,7 @@ export default function(modeName) {
         if (!showArrow) {
           return null;
         }
-        const inputIcon = getComponentFromProp(this, 'inputIcon');
+        const inputIcon = getComponent(this, 'inputIcon');
         return (
           <span key="arrow" class={`${prefixCls}-arrow`} style={{ outline: 'none' }}>
             {inputIcon}
@@ -121,8 +124,6 @@ export default function(modeName) {
     render() {
       const {
         prefixCls,
-        className,
-        style,
         open,
         focused,
         disabled,
@@ -130,13 +131,14 @@ export default function(modeName) {
         ariaId,
         renderSelection,
         renderPlaceholder,
-        tabIndex,
+        tabindex,
       } = this.$props;
+      const { class: className, style, onClick = noop } = this.$attrs;
       const {
         vcTreeSelect: { onSelectorKeyDown },
       } = this;
 
-      let myTabIndex = tabIndex;
+      let myTabIndex = tabindex;
       if (disabled) {
         myTabIndex = null;
       }
@@ -144,7 +146,7 @@ export default function(modeName) {
       return (
         <span
           style={style}
-          onClick={getListeners(this).click || noop}
+          onClick={onClick}
           class={classNames(className, prefixCls, {
             [`${prefixCls}-open`]: open,
             [`${prefixCls}-focused`]: open || focused,
@@ -152,21 +154,14 @@ export default function(modeName) {
             [`${prefixCls}-enabled`]: !disabled,
             [`${prefixCls}-allow-clear`]: allowClear,
           })}
-          {...{
-            directives: [
-              {
-                name: 'ant-ref',
-                value: this.domRef,
-              },
-            ],
-          }}
+          ref={this.domRef}
           role="combobox"
           aria-expanded={open}
           aria-owns={open ? ariaId : undefined}
           aria-controls={open ? ariaId : undefined}
           aria-haspopup="listbox"
           aria-disabled={disabled}
-          tabIndex={myTabIndex}
+          tabindex={myTabIndex}
           onFocus={this.onFocus}
           onBlur={this.onBlur}
           onKeydown={onSelectorKeyDown}

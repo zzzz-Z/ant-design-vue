@@ -2,6 +2,7 @@ import { nextTick, inject } from 'vue';
 import TransitionEvents from './css-animation/Event';
 import raf from './raf';
 import { ConfigConsumerProps } from '../config-provider';
+import { findDOMNode } from './props-util';
 let styleForPesudo;
 
 // Where el is the DOM element you'd like to test for visibility
@@ -24,7 +25,7 @@ export default {
   props: ['insertExtraNode'],
   mounted() {
     nextTick(() => {
-      const node = this.$el;
+      const node = findDOMNode(this);
       if (node.nodeType !== 1) {
         return;
       }
@@ -37,14 +38,13 @@ export default {
       configProvider,
     };
   },
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.instance) {
       this.instance.cancel();
     }
     if (this.clickWaveTimeoutId) {
       clearTimeout(this.clickWaveTimeoutId);
     }
-    this.destroy = true;
   },
   methods: {
     onClick(node, waveColor) {
@@ -58,7 +58,7 @@ export default {
       const attributeName = this.getAttributeName();
       node.removeAttribute(attributeName);
       node.setAttribute(attributeName, 'true');
-      // Not white or transparnt or grey
+      // Not white or transparent or grey
       styleForPesudo = styleForPesudo || document.createElement('style');
       if (
         waveColor &&
@@ -88,9 +88,9 @@ export default {
       TransitionEvents.addEndEventListener(node, this.onTransitionEnd);
     },
     onTransitionStart(e) {
-      if (this.destroy) return;
+      if (this._.isUnmounted) return;
 
-      const node = this.$el;
+      const node = findDOMNode(this);
       if (!e || e.target !== node) {
         return;
       }

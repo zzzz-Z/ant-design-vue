@@ -1,6 +1,5 @@
-import classnames from 'classnames';
-import { cloneVNode, withDirectives, Teleport, nextTick } from 'vue';
-import antRef from '../../_util/ant-ref';
+import classnames from '../../_util/classNames';
+import { cloneVNode, Teleport, nextTick } from 'vue';
 import BaseMixin from '../../_util/BaseMixin';
 import { initDefaultProps, getSlot } from '../../_util/props-util';
 import getScrollBarSize from '../../_util/getScrollBarSize';
@@ -29,7 +28,6 @@ const Drawer = {
   name: 'Drawer',
   mixins: [BaseMixin],
   inheritAttrs: false,
-  directives: { 'ant-ref': antRef },
   props: initDefaultProps(IDrawerProps, {
     prefixCls: 'drawer',
     placement: 'left',
@@ -42,7 +40,6 @@ const Drawer = {
     handler: true,
     maskStyle: {},
     wrapperClassName: '',
-    className: '',
   }),
   data() {
     this.levelDom = [];
@@ -130,7 +127,7 @@ const Drawer = {
       }
     });
   },
-  beforeDestroy() {
+  beforeUnmount() {
     delete currentDrawer[this.drawerId];
     delete this.isOpenChange;
     if (this.container) {
@@ -146,15 +143,15 @@ const Drawer = {
     onKeyDown(e) {
       if (e.keyCode === KeyCode.ESC) {
         e.stopPropagation();
-        this.$emit('close', e);
+        this.__emit('close', e);
       }
     },
     onMaskTouchEnd(e) {
-      this.$emit('close', e);
+      this.__emit('close', e);
       this.onTouchEnd(e, true);
     },
     onIconTouchEnd(e) {
-      this.$emit('handleClick', e);
+      this.__emit('handleClick', e);
       this.onTouchEnd(e);
     },
     onTouchEnd(e, close) {
@@ -373,7 +370,6 @@ const Drawer = {
     },
     getChildToRender(open) {
       const {
-        className,
         prefixCls,
         placement,
         handler,
@@ -385,14 +381,13 @@ const Drawer = {
         keyboard,
         maskClosable,
       } = this.$props;
-      const { class: cls, style } = this.$attrs;
+      const { class: cls, style, ...restAttrs } = this.$attrs;
       const children = getSlot(this);
       const wrapperClassname = classnames(prefixCls, {
         [`${prefixCls}-${placement}`]: true,
         [`${prefixCls}-open`]: open,
-        [className]: !!className,
         'no-mask': !showMask,
-        [cls]: true,
+        [cls]: cls,
       });
       const isOpenChange = this.isOpenChange;
       const isHorizontal = placement === 'left' || placement === 'right';
@@ -418,78 +413,40 @@ const Drawer = {
         const { handler: handlerSlot } = this;
         const handlerSlotVnode = handlerSlot || handlerDefalut;
         const handleIconClick = handlerSlotVnode.props && handlerSlotVnode.props.onClick;
-        handlerChildren = withDirectives(
-          cloneVNode(handlerSlotVnode, {
-            onClick: e => {
-              handleIconClick && handleIconClick();
-              this.onIconTouchEnd(e);
-            },
-          }),
-          [
-            [
-              antRef, //directive
-              c => {
-                this.handlerdom = c;
-              }, // value
-            ],
-          ],
-        );
+        handlerChildren = cloneVNode(handlerSlotVnode, {
+          onClick: e => {
+            handleIconClick && handleIconClick();
+            this.onIconTouchEnd(e);
+          },
+          ref: c => {
+            this.handlerdom = c;
+          },
+        });
       }
       const domContProps = {
+        ...restAttrs,
         class: wrapperClassname,
-        // directives: [
-        //   {
-        //     name: 'ant-ref',
-        //     value: c => {
-        //       this.dom = c;
-        //     },
-        //   },
-        // ],
         onTransitionend: this.onWrapperTransitionEnd,
         onKeydown: open && keyboard ? this.onKeyDown : noop,
         style: { ...wrapStyle, ...style },
       };
-      // const directivesMaskDom = [
-      //   {
-      //     name: 'ant-ref',
-      //     value: c => {
-      //       this.maskDom = c;
-      //     },
-      //   },
-      // ];
-      // const directivesContentWrapper = [
-      //   {
-      //     name: 'ant-ref',
-      //     value: c => {
-      //       this.contentWrapper = c;
-      //     },
-      //   },
-      // ];
-      // const directivesContentDom = [
-      //   {
-      //     name: 'ant-ref',
-      //     value: c => {
-      //       this.contentDom = c;
-      //     },
-      //   },
-      // ];
       return (
         <div
-          v-ant-ref={c => {
+          ref={c => {
             this.dom = c;
           }}
           {...domContProps}
-          tabIndex={-1}
+          tabindex={-1}
         >
           {showMask && (
             <div
+              key={open} // 第二次渲染时虚拟DOM没有改变，没有出发dom更新，使用key强制更新 https://github.com/vueComponent/ant-design-vue/issues/2407
               class={`${prefixCls}-mask`}
               onClick={maskClosable ? this.onMaskTouchEnd : noop}
               style={maskStyle}
-              v-ant-ref={c => {
+              ref={c => {
                 this.maskDom = c;
               }}
-              // {...{ directives: directivesMaskDom }}
             />
           )}
           <div
@@ -500,17 +457,15 @@ const Drawer = {
               width: isNumeric(width) ? `${width}px` : width,
               height: isNumeric(height) ? `${height}px` : height,
             }}
-            v-ant-ref={c => {
+            ref={c => {
               this.contentWrapper = c;
             }}
-            // {...{ directives: directivesContentWrapper }}
           >
             <div
               class={`${prefixCls}-content`}
-              v-ant-ref={c => {
+              ref={c => {
                 this.contentDom = c;
               }}
-              // {...{ directives: directivesContentDom }}
               onTouchstart={open ? this.removeStartHandler : noop} // 跑用例用
               onTouchmove={open ? this.removeMoveHandler : noop} // 跑用例用
             >
@@ -622,18 +577,10 @@ const Drawer = {
     currentDrawer[this.drawerId] = open ? this.container : open;
     const children = this.getChildToRender(this.sFirstEnter ? open : false);
     if (!getContainer) {
-      // const directives = [
-      //   {
-      //     name: 'ant-ref',
-      //     value: c => {
-      //       this.container = c;
-      //     },
-      //   },
-      // ];
       return (
         <div
           class={wrapperClassName}
-          v-ant-ref={c => {
+          ref={c => {
             this.container = c;
           }}
         >

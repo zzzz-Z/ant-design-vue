@@ -4,6 +4,7 @@ import moment from 'moment';
 import DatePicker from '../';
 import LocaleProvider from '../../locale-provider';
 import locale from '../../locale-provider/zh_CN';
+import { sleep } from '../../../tests/utils';
 
 const { MonthPicker, WeekPicker } = DatePicker;
 
@@ -27,7 +28,7 @@ describe('Picker format by locale', () => {
           render() {
             return (
               <LocaleProvider locale={myLocale}>
-                <Picker {...{ value: date, ...props }} />
+                <Picker value={date} {...props} />
               </LocaleProvider>
             );
           },
@@ -47,42 +48,30 @@ describe('Picker format by locale', () => {
 });
 
 describe('MonthPicker and WeekPicker', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
   it('render MonthPicker', async () => {
     const birthday = moment('2000-01-01', 'YYYY-MM-DD').locale('zh-cn');
-    const wrapper = mount(MonthPicker, { propsData: { open: true }, sync: false });
+    const wrapper = mount(MonthPicker, { props: { open: true }, sync: false });
     await asyncExpect(() => {
       wrapper.setProps({ value: birthday });
     });
 
-    const calendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      expect(calendarWrapper.html()).toMatchSnapshot();
+      expect(document.body.innerHTML).toMatchSnapshot();
     });
   });
 
   it('render WeekPicker', async () => {
     const birthday = moment('2000-01-01', 'YYYY-MM-DD').locale('zh-cn');
-    const wrapper = mount(WeekPicker, { propsData: { open: true }, sync: false });
+    const wrapper = mount(WeekPicker, { props: { open: false }, sync: false });
     await asyncExpect(() => {
-      wrapper.setProps({ value: birthday });
+      wrapper.setProps({ value: birthday, open: true });
     });
-    const calendarWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
+    await sleep(50);
     await asyncExpect(() => {
-      expect(calendarWrapper.html()).toMatchSnapshot();
+      expect(document.body.innerHTML).toMatchSnapshot();
     });
   });
 });

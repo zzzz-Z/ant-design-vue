@@ -1,7 +1,9 @@
+import { TransitionGroup } from 'vue';
 import raf from '../_util/raf';
 import ListItem from './ListItem';
 import PropTypes from '../_util/vue-types';
 import getTransitionProps from '../_util/getTransitionProps';
+import { findDOMNode } from '../_util/props-util';
 function noop() {}
 const ListBody = {
   name: 'ListBody',
@@ -12,6 +14,9 @@ const ListBody = {
     lazy: PropTypes.oneOfType([PropTypes.bool, PropTypes.object]),
     selectedKeys: PropTypes.array,
     disabled: PropTypes.bool,
+    onItemSelect: PropTypes.func,
+    onItemSelectAll: PropTypes.func,
+    onScroll: PropTypes.func,
   },
   data() {
     return {
@@ -28,7 +33,7 @@ const ListBody = {
       this.$nextTick(() => {
         const { lazy } = this.$props;
         if (lazy !== false) {
-          const container = this.$el;
+          const container = findDOMNode(this);
           raf.cancel(this.lazyId);
           this.lazyId = raf(() => {
             if (container) {
@@ -46,17 +51,17 @@ const ListBody = {
     });
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     raf.cancel(this.mountId);
     raf.cancel(this.lazyId);
   },
   methods: {
-    onItemSelect(item) {
+    handleItemSelect(item) {
       const { selectedKeys } = this.$props;
       const checked = selectedKeys.indexOf(item.key) >= 0;
       this.$emit('itemSelect', item.key, !checked);
     },
-    onScroll(e) {
+    handleScroll(e) {
       this.$emit('scroll', e);
     },
   },
@@ -83,7 +88,7 @@ const ListBody = {
           renderedEl={renderedEl}
           checked={checked}
           prefixCls={prefixCls}
-          onClick={this.onItemSelect}
+          onClick={this.handleItemSelect}
         />
       );
     });
@@ -91,18 +96,16 @@ const ListBody = {
       mounted ? `${prefixCls}-content-item-highlight` : '',
       {
         tag: 'ul',
-        nativeOn: {
-          scroll: this.onScroll,
-        },
-        leave: noop,
+        onScroll: this.handleScroll,
+        onLeave: noop,
       },
     );
     return (
-      <transition-group class={`${prefixCls}-content`} {...transitionProps}>
+      <TransitionGroup class={`${prefixCls}-content`} {...transitionProps}>
         {items}
-      </transition-group>
+      </TransitionGroup>
     );
   },
 };
 
-export default (h, props) => <ListBody {...props} />;
+export default props => <ListBody {...props} />;

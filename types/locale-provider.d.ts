@@ -2,8 +2,6 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from './component';
-
 export interface ModalLocale {
   okText: string;
   cancelText: string;
@@ -21,12 +19,4 @@ export interface Locale {
   Transfer?: Object;
   Select?: Object;
   Upload?: Object;
-}
-
-export declare class LocaleProvider extends AntdComponent {
-  /**
-   * language package setting, you can find the packages in this path: antd/lib/locale-provider/
-   * @type object
-   */
-  locale: object;
 }

@@ -1,17 +1,19 @@
+import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
 import { ConfigConsumerProps } from '../config-provider';
 
 export default {
   name: 'ACheckableTag',
-  model: {
-    prop: 'checked',
-  },
   props: {
     prefixCls: PropTypes.string,
-    checked: Boolean,
+    checked: PropTypes.bool,
+    onChange: PropTypes.func,
+    'onUpdate:checked': PropTypes.func,
   },
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   computed: {
     classes() {
@@ -28,7 +30,7 @@ export default {
   methods: {
     handleClick() {
       const { checked } = this;
-      this.$emit('input', !checked);
+      this.$emit('update:checked', !checked);
       this.$emit('change', !checked);
     },
   },
@@ -36,7 +38,7 @@ export default {
     const { classes, handleClick, $slots } = this;
     return (
       <div class={classes} onClick={handleClick}>
-        {$slots.default}
+        {$slots.default && $slots.default()}
       </div>
     );
   },

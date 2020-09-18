@@ -4,92 +4,88 @@ import Select from '..';
 import CloseOutlined from '@ant-design/icons-vue/CloseOutlined';
 import focusTest from '../../../tests/shared/focusTest';
 import mountTest from '../../../tests/shared/mountTest';
+function $$(className) {
+  return document.body.querySelectorAll(className);
+}
+function getStyle(el, prop) {
+  const style = window.getComputedStyle ? window.getComputedStyle(el) : el.currentStyle;
 
+  // If a css property's value is `auto`, it will return an empty string.
+  return prop ? style[prop] : style;
+}
 describe('Select', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
   focusTest(Select);
-  mountTest(Select);
+  mountTest({
+    render() {
+      return (
+        <div>
+          <Select />
+        </div>
+      );
+    },
+  });
 
   it('should have default notFoundContent', async () => {
     const wrapper = mount(Select, {
-      propsData: {
+      props: {
         mode: 'multiple',
       },
       sync: false,
+      attachTo: 'body',
     });
     await asyncExpect(() => {
       wrapper.find('.ant-select').trigger('click');
     });
-    const dropdownWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
 
     await asyncExpect(() => {
-      expect(dropdownWrapper.findAll({ name: 'MenuItem' }).length).toBe(1);
-      expect(
-        dropdownWrapper
-          .findAll({ name: 'MenuItem' })
-          .at(0)
-          .text(),
-      ).toBe('No Data');
+      expect($$('.ant-select-dropdown-menu-item').length).toBe(1);
+      expect($$('.ant-select-dropdown-menu-item .ant-empty-description')[0].innerHTML).toBe(
+        'No Data',
+      );
     });
   });
 
   it('should support set notFoundContent to null', async () => {
     const wrapper = mount(Select, {
-      propsData: {
+      props: {
         mode: 'multiple',
         notFoundContent: null,
       },
       sync: false,
+      attachTo: 'body',
     });
     await asyncExpect(() => {
       wrapper.find('.ant-select').trigger('click');
     });
-    const dropdownWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
+
     await asyncExpect(() => {
-      expect(dropdownWrapper.findAll({ name: 'MenuItem' }).length).toBe(0);
+      expect($$('.ant-select-dropdown-menu-item').length).toBe(0);
     });
   });
 
   it('should not have default notFoundContent when mode is combobox', async () => {
     const wrapper = mount(Select, {
-      propsData: {
+      props: {
         mode: Select.SECRET_COMBOBOX_MODE_DO_NOT_USE,
       },
       sync: false,
+      attachTo: 'body',
     });
     await asyncExpect(() => {
       wrapper.find('.ant-select').trigger('click');
     });
 
-    const dropdownWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      expect(dropdownWrapper.findAll('MenuItem').length).toBe(0);
+      expect($$('.ant-select-dropdown-menu-item').length).toBe(0);
     });
   });
 
   it('should not have notFoundContent when mode is combobox and notFoundContent is set', async () => {
     const wrapper = mount(Select, {
-      propsData: {
+      props: {
         mode: Select.SECRET_COMBOBOX_MODE_DO_NOT_USE,
         notFoundContent: 'not at all',
       },
@@ -99,22 +95,9 @@ describe('Select', () => {
       wrapper.find('.ant-select').trigger('click');
     });
 
-    const dropdownWrapper = mount(
-      {
-        render() {
-          return wrapper.find({ name: 'Trigger' }).vm.getComponent();
-        },
-      },
-      { sync: false },
-    );
     await asyncExpect(() => {
-      expect(dropdownWrapper.findAll({ name: 'MenuItem' }).length).toBe(1);
-      expect(
-        dropdownWrapper
-          .findAll({ name: 'MenuItem' })
-          .at(0)
-          .text(),
-      ).toBe('not at all');
+      expect($$('.ant-select-dropdown-menu-item').length).toBe(1);
+      expect($$('.ant-select-dropdown-menu-item')[0].innerHTML).toMatchSnapshot();
     });
   });
 
@@ -131,52 +114,32 @@ describe('Select', () => {
         render() {
           return (
             <Select open={this.open} onDropdownVisibleChange={onDropdownVisibleChange}>
-              <Option value="1">1</Option>
+              <Select.Option value="1">1</Select.Option>
             </Select>
           );
         },
       },
-      { sync: false },
+      { sync: false, attachTo: 'body' },
     );
-    let triggerComponent = null;
-    mount(
-      {
-        render() {
-          triggerComponent = wrapper.find({ name: 'Trigger' }).vm.getComponent();
-          return triggerComponent;
-        },
-      },
-      { sync: false },
-    );
+
     await asyncExpect(() => {
-      // console.log(triggerComponent.componentInstance.visible)
-      expect(triggerComponent.componentInstance.visible).toBe(true);
+      expect(getStyle($$('.ant-select-dropdown')[0], 'display')).toBe('block');
     });
     await asyncExpect(() => {
       wrapper.find('.ant-select').trigger('click');
       expect(onDropdownVisibleChange).toHaveBeenLastCalledWith(false);
     });
     await asyncExpect(() => {
-      expect(triggerComponent.componentInstance.visible).toBe(true);
+      expect(getStyle($$('.ant-select-dropdown')[0], 'display')).toBe('block');
       wrapper.setProps({ open: false });
     });
+
     await asyncExpect(() => {
-      mount(
-        {
-          render() {
-            triggerComponent = wrapper.find({ name: 'Trigger' }).vm.getComponent();
-            return triggerComponent;
-          },
-        },
-        { sync: false },
-      );
-    });
-    await asyncExpect(() => {
-      expect(triggerComponent.componentInstance.visible).toBe(false);
+      expect(getStyle($$('.ant-select-dropdown')[0], 'display')).toBe('none');
       wrapper.find('.ant-select').trigger('click');
       expect(onDropdownVisibleChange).toHaveBeenLastCalledWith(true);
-      expect(triggerComponent.componentInstance.visible).toBe(false);
-    });
+      expect(getStyle($$('.ant-select-dropdown')[0], 'display')).toBe('none');
+    }, 500);
   });
 
   describe('Select Custom Icons', () => {
@@ -189,7 +152,7 @@ describe('Select', () => {
               clearIcon={<CloseOutlined />}
               menuItemSelectedIcon={<CloseOutlined />}
             >
-              <Option value="1">1</Option>
+              <Select.Option value="1">1</Select.Option>
             </Select>
           );
         },

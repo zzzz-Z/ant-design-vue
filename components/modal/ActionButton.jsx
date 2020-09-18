@@ -2,12 +2,13 @@ import PropTypes from '../_util/vue-types';
 import Button from '../button';
 import BaseMixin from '../_util/BaseMixin';
 import buttonTypes from '../button/buttonTypes';
+import { getSlot, findDOMNode } from '../_util/props-util';
 const ButtonType = buttonTypes().type;
 const ActionButtonProps = {
   type: ButtonType,
   actionFn: PropTypes.func,
   closeModal: PropTypes.func,
-  autoFocus: PropTypes.bool,
+  autofocus: PropTypes.bool,
   buttonProps: PropTypes.object,
 };
 
@@ -20,11 +21,11 @@ export default {
     };
   },
   mounted() {
-    if (this.autoFocus) {
-      this.timeoutId = setTimeout(() => this.$el.focus());
+    if (this.autofocus) {
+      this.timeoutId = setTimeout(() => findDOMNode(this).focus());
     }
   },
-  beforeDestroy() {
+  beforeUnmount() {
     clearTimeout(this.timeoutId);
   },
   methods: {
@@ -64,11 +65,13 @@ export default {
   },
 
   render() {
-    const { type, $slots, loading, buttonProps } = this;
-    return (
-      <Button type={type} onClick={this.onClick} loading={loading} {...buttonProps}>
-        {$slots.default}
-      </Button>
-    );
+    const { type, loading, buttonProps } = this;
+    const props = {
+      type,
+      onClick: this.onClick,
+      loading,
+      ...buttonProps,
+    };
+    return <Button {...props}>{getSlot(this)}</Button>;
   },
 };

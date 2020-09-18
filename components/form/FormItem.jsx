@@ -1,26 +1,31 @@
+import { inject, provide, Transition } from 'vue';
+import cloneDeep from 'lodash-es/cloneDeep';
 import PropTypes from '../_util/vue-types';
-import classNames from 'classnames';
-import find from 'lodash/find';
+import classNames from '../_util/classNames';
+import getTransitionProps from '../_util/getTransitionProps';
 import Row from '../grid/Row';
 import Col, { ColProps } from '../grid/Col';
-import warning from '../_util/warning';
-import { FIELD_META_PROP, FIELD_DATA_PROP } from './constants';
-import {
+import hasProp, {
   initDefaultProps,
-  getComponentFromProp,
-  filterEmpty,
-  getSlotOptions,
+  findDOMNode,
+  getComponent,
+  getOptionProps,
+  getEvents,
   isValidElement,
-  getAllChildren,
+  getSlot,
 } from '../_util/props-util';
-import getTransitionProps from '../_util/getTransitionProps';
 import BaseMixin from '../_util/BaseMixin';
-import { cloneElement, cloneVNodes } from '../_util/vnode';
+import { ConfigConsumerProps } from '../config-provider';
+import { cloneElement } from '../_util/vnode';
 import CheckCircleFilled from '@ant-design/icons-vue/CheckCircleFilled';
 import ExclamationCircleFilled from '@ant-design/icons-vue/ExclamationCircleFilled';
 import CloseCircleFilled from '@ant-design/icons-vue/CloseCircleFilled';
 import LoadingOutlined from '@ant-design/icons-vue/LoadingOutlined';
-import { ConfigConsumerProps } from '../config-provider';
+import { validateRules } from './utils/validateUtil';
+import { getNamePath } from './utils/valueUtil';
+import { toArray } from './utils/typeUtil';
+import { warning } from '../vc-util/warning';
+import find from 'lodash-es/find';
 
 const iconMap = {
   success: CheckCircleFilled,
@@ -29,231 +34,262 @@ const iconMap = {
   validating: LoadingOutlined,
 };
 
-function noop() {}
+function getPropByPath(obj, namePathList, strict) {
+  let tempObj = obj;
 
-function intersperseSpace(list) {
-  return list.reduce((current, item) => [...current, ' ', item], []).slice(1);
+  const keyArr = namePathList;
+  let i = 0;
+  try {
+    for (let len = keyArr.length; i < len - 1; ++i) {
+      if (!tempObj && !strict) break;
+      let key = keyArr[i];
+      if (key in tempObj) {
+        tempObj = tempObj[key];
+      } else {
+        if (strict) {
+          throw Error('please transfer a valid name path to form item!');
+        }
+        break;
+      }
+    }
+    if (strict && !tempObj) {
+      throw Error('please transfer a valid name path to form item!');
+    }
+  } catch (error) {
+    console.error('please transfer a valid name path to form item!');
+  }
+
+  return {
+    o: tempObj,
+    k: keyArr[i],
+    v: tempObj ? tempObj[keyArr[i]] : undefined,
+  };
 }
 export const FormItemProps = {
   id: PropTypes.string,
   htmlFor: PropTypes.string,
   prefixCls: PropTypes.string,
   label: PropTypes.any,
-  labelCol: PropTypes.shape(ColProps).loose,
-  wrapperCol: PropTypes.shape(ColProps).loose,
   help: PropTypes.any,
   extra: PropTypes.any,
-  validateStatus: PropTypes.oneOf(['', 'success', 'warning', 'error', 'validating']),
+  labelCol: PropTypes.shape(ColProps).loose,
+  wrapperCol: PropTypes.shape(ColProps).loose,
   hasFeedback: PropTypes.bool,
-  required: PropTypes.bool,
   colon: PropTypes.bool,
-  fieldDecoratorId: PropTypes.string,
-  fieldDecoratorOptions: PropTypes.object,
-  selfUpdate: PropTypes.bool,
   labelAlign: PropTypes.oneOf(['left', 'right']),
+  prop: PropTypes.oneOfType([Array, String, Number]),
+  name: PropTypes.oneOfType([Array, String, Number]),
+  rules: PropTypes.oneOfType([Array, Object]),
+  autoLink: PropTypes.bool,
+  required: PropTypes.bool,
+  validateFirst: PropTypes.bool,
+  validateStatus: PropTypes.oneOf(['', 'success', 'warning', 'error', 'validating']),
+  validateTrigger: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
 };
-function comeFromSlot(vnodes = [], itemVnode) {
-  let isSlot = false;
-  for (let i = 0, len = vnodes.length; i < len; i++) {
-    const vnode = vnodes[i];
-    if (vnode && (vnode === itemVnode || vnode.$vnode === itemVnode)) {
-      isSlot = true;
-    } else {
-      const componentOptions =
-        vnode.componentOptions || (vnode.$vnode && vnode.$vnode.componentOptions);
-      const children = componentOptions ? componentOptions.children : vnode.$children;
-      isSlot = comeFromSlot(children, itemVnode);
-    }
-    if (isSlot) {
-      break;
-    }
-  }
-  return isSlot;
-}
 
 export default {
   name: 'AFormItem',
-  __ANT_FORM_ITEM: true,
   mixins: [BaseMixin],
+  inheritAttrs: false,
+  __ANT_NEW_FORM_ITEM: true,
   props: initDefaultProps(FormItemProps, {
     hasFeedback: false,
+    autoLink: true,
   }),
-  provide() {
+  setup() {
     return {
-      isFormItemChildren: true,
+      isFormItemChildren: inject('isFormItemChildren', false),
+      configProvider: inject('configProvider', ConfigConsumerProps),
+      FormContext: inject('FormContext', {}),
     };
   },
-  inject: {
-    isFormItemChildren: { default: false },
-    FormContext: { default: () => ({}) },
-    decoratorFormProps: { default: () => ({}) },
-    collectFormItemContext: { default: () => noop },
-    configProvider: { default: () => ConfigConsumerProps },
-  },
   data() {
-    return { helpShow: false };
+    warning(!hasProp(this, 'prop'), `\`prop\` is deprecated. Please use \`name\` instead.`);
+    return {
+      validateState: this.validateStatus,
+      validateMessage: '',
+      validateDisabled: false,
+      validator: {},
+      helpShow: false,
+      errors: [],
+    };
   },
   computed: {
-    itemSelfUpdate() {
-      return !!(this.selfUpdate === undefined ? this.FormContext.selfUpdate : this.selfUpdate);
+    fieldName() {
+      return this.name || this.prop;
+    },
+    namePath() {
+      return getNamePath(this.fieldName);
+    },
+    fieldId() {
+      if (this.id) {
+        return this.id;
+      } else if (!this.namePath.length) {
+        return undefined;
+      } else {
+        const formName = this.FormContext.name;
+        const mergedId = this.namePath.join('_');
+        return formName ? `${formName}_${mergedId}` : mergedId;
+      }
+    },
+    fieldValue() {
+      const model = this.FormContext.model;
+      if (!model || !this.fieldName) {
+        return;
+      }
+      return getPropByPath(model, this.namePath, true).v;
+    },
+    isRequired() {
+      let rules = this.getRules();
+      let isRequired = false;
+      if (rules && rules.length) {
+        rules.every(rule => {
+          if (rule.required) {
+            isRequired = true;
+            return false;
+          }
+          return true;
+        });
+      }
+      return isRequired || this.required;
+    },
+    mergedValidateTrigger() {
+      let validateTrigger =
+        this.validateTrigger !== undefined
+          ? this.validateTrigger
+          : this.FormContext.validateTrigger;
+      validateTrigger = validateTrigger === undefined ? 'change' : validateTrigger;
+      return toArray(validateTrigger);
+    },
+  },
+  watch: {
+    validateStatus(val) {
+      this.validateState = val;
     },
   },
   created() {
-    this.collectContext();
-  },
-  beforeUpdate() {
-    if (process.env.NODE_ENV !== 'production') {
-      this.collectContext();
-    }
-  },
-  beforeDestroy() {
-    this.collectFormItemContext(this.$vnode && this.$vnode.context, 'delete');
+    provide('isFormItemChildren', true);
   },
   mounted() {
-    const { help, validateStatus } = this.$props;
-    warning(
-      this.getControls(this.slotDefault, true).length <= 1 ||
-        help !== undefined ||
-        validateStatus !== undefined,
-      'Form.Item',
-      'Cannot generate `validateStatus` and `help` automatically, ' +
-        'while there are more than one `getFieldDecorator` in it.',
-    );
-    warning(
-      !this.fieldDecoratorId,
-      'Form.Item',
-      '`fieldDecoratorId` is deprecated. please use `v-decorator={id, options}` instead.',
-    );
+    if (this.fieldName) {
+      const { addField } = this.FormContext;
+      addField && addField(this);
+      this.initialValue = cloneDeep(this.fieldValue);
+    }
+  },
+  beforeUnmount() {
+    const { removeField } = this.FormContext;
+    removeField && removeField(this);
   },
   methods: {
-    collectContext() {
-      if (this.FormContext.form && this.FormContext.form.templateContext) {
-        const { templateContext } = this.FormContext.form;
-        const vnodes = Object.values(templateContext.$slots || {}).reduce((a, b) => {
-          return [...a, ...b];
-        }, []);
-        const isSlot = comeFromSlot(vnodes, this.$vnode);
-        warning(!isSlot, 'You can not set FormItem from slot, please use slot-scope instead slot');
-        let isSlotScope = false;
-        // 进一步判断是否是通过slot-scope传递
-        if (!isSlot && this.$vnode.context !== templateContext) {
-          isSlotScope = comeFromSlot(this.$vnode.context.$children, templateContext.$vnode);
-        }
-        if (!isSlotScope && !isSlot) {
-          this.collectFormItemContext(this.$vnode.context);
-        }
+    getNamePath() {
+      const { fieldName } = this;
+      const { prefixName = [] } = this.FormContext;
+
+      return fieldName !== undefined ? [...prefixName, ...this.namePath] : [];
+    },
+    validateRules(options) {
+      const { validateFirst = false, messageVariables } = this.$props;
+      const { triggerName } = options || {};
+      const namePath = this.getNamePath();
+
+      let filteredRules = this.getRules();
+      if (triggerName) {
+        filteredRules = filteredRules.filter(rule => {
+          const { trigger } = rule;
+          if (!trigger && !this.mergedValidateTrigger.length) {
+            return true;
+          }
+          const triggerList = toArray(trigger || this.mergedValidateTrigger);
+          return triggerList.includes(triggerName);
+        });
       }
+      if (!filteredRules.length) {
+        return Promise.resolve();
+      }
+      const promise = validateRules(
+        namePath,
+        this.fieldValue,
+        filteredRules,
+        options,
+        validateFirst,
+        messageVariables,
+      );
+      this.validateState = 'validating';
+      this.errors = [];
+
+      promise
+        .catch(e => e)
+        .then((errors = []) => {
+          if (this.validateState === 'validating') {
+            this.validateState = errors.length ? 'error' : 'success';
+            this.validateMessage = errors[0];
+            this.errors = errors;
+          }
+        });
+
+      return promise;
+    },
+    getRules() {
+      let formRules = this.FormContext.rules;
+      const selfRules = this.rules;
+      const requiredRule =
+        this.required !== undefined
+          ? { required: !!this.required, trigger: this.mergedValidateTrigger }
+          : [];
+      const prop = getPropByPath(formRules, this.namePath);
+      formRules = formRules ? prop.o[prop.k] || prop.v : [];
+      const rules = [].concat(selfRules || formRules || []);
+      if (find(rules, rule => rule.required)) {
+        return rules;
+      } else {
+        return rules.concat(requiredRule);
+      }
+    },
+    onFieldBlur() {
+      this.validateRules({ triggerName: 'blur' });
+    },
+    onFieldChange() {
+      if (this.validateDisabled) {
+        this.validateDisabled = false;
+        return;
+      }
+      this.validateRules({ triggerName: 'change' });
+    },
+    clearValidate() {
+      this.validateState = '';
+      this.validateMessage = '';
+      this.validateDisabled = false;
+    },
+    resetField() {
+      this.validateState = '';
+      this.validateMessage = '';
+      const model = this.FormContext.model || {};
+      const value = this.fieldValue;
+      const prop = getPropByPath(model, this.namePath, true);
+      this.validateDisabled = true;
+      if (Array.isArray(value)) {
+        prop.o[prop.k] = [].concat(this.initialValue);
+      } else {
+        prop.o[prop.k] = this.initialValue;
+      }
+      // reset validateDisabled after onFieldChange triggered
+      this.$nextTick(() => {
+        this.validateDisabled = false;
+      });
     },
     getHelpMessage() {
-      const help = getComponentFromProp(this, 'help');
-      const onlyControl = this.getOnlyControl();
-      if (help === undefined && onlyControl) {
-        const errors = this.getField().errors;
-        if (errors) {
-          return intersperseSpace(
-            errors.map((e, index) => {
-              let node = null;
-              if (isValidElement(e)) {
-                node = e;
-              } else if (isValidElement(e.message)) {
-                node = e.message;
-              }
-              return node ? cloneElement(node, { key: index }) : e.message;
-            }),
-          );
-        } else {
-          return '';
-        }
-      }
+      const help = getComponent(this, 'help');
 
-      return help;
+      return this.validateMessage || help;
     },
 
-    getControls(childrenArray = [], recursively) {
-      let controls = [];
-      for (let i = 0; i < childrenArray.length; i++) {
-        if (!recursively && controls.length > 0) {
-          break;
-        }
-
-        const child = childrenArray[i];
-        if (!child.tag && child.text.trim() === '') {
-          continue;
-        }
-
-        if (getSlotOptions(child).__ANT_FORM_ITEM) {
-          continue;
-        }
-        const children = getAllChildren(child);
-        const attrs = (child.data && child.data.attrs) || {};
-        if (FIELD_META_PROP in attrs) {
-          // And means FIELD_DATA_PROP in child.props, too.
-          controls.push(child);
-        } else if (children) {
-          controls = controls.concat(this.getControls(children, recursively));
-        }
-      }
-      return controls;
-    },
-
-    getOnlyControl() {
-      const child = this.getControls(this.slotDefault, false)[0];
-      return child !== undefined ? child : null;
-    },
-
-    getChildAttr(prop) {
-      const child = this.getOnlyControl();
-      let data = {};
-      if (!child) {
-        return undefined;
-      }
-      if (child.data) {
-        data = child.data;
-      } else if (child.$vnode && child.$vnode.data) {
-        data = child.$vnode.data;
-      }
-      return data[prop] || data.attrs[prop];
-    },
-
-    getId() {
-      return this.getChildAttr('id');
-    },
-
-    getMeta() {
-      return this.getChildAttr(FIELD_META_PROP);
-    },
-
-    getField() {
-      return this.getChildAttr(FIELD_DATA_PROP);
-    },
-
-    getValidateStatus() {
-      const onlyControl = this.getOnlyControl();
-      if (!onlyControl) {
-        return '';
-      }
-      const field = this.getField();
-      if (field.validating) {
-        return 'validating';
-      }
-      if (field.errors) {
-        return 'error';
-      }
-      const fieldValue = 'value' in field ? field.value : this.getMeta().initialValue;
-      if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
-        return 'success';
-      }
-      return '';
-    },
-
-    // Resolve duplicated ids bug between different forms
-    // https://github.com/ant-design/ant-design/issues/7351
     onLabelClick() {
-      const id = this.id || this.getId();
+      const id = this.fieldId;
       if (!id) {
         return;
       }
-      const formItemNode = this.$el;
+      const formItemNode = findDOMNode(this);
       const control = formItemNode.querySelector(`[id="${id}"]`);
       if (control && control.focus) {
         control.focus();
@@ -267,24 +303,6 @@ export default {
       }
     },
 
-    isRequired() {
-      const { required } = this;
-      if (required !== undefined) {
-        return required;
-      }
-      if (this.getOnlyControl()) {
-        const meta = this.getMeta() || {};
-        const validate = meta.validate || [];
-
-        return validate
-          .filter(item => !!item.rules)
-          .some(item => {
-            return item.rules.some(rule => rule.required);
-          });
-      }
-      return false;
-    },
-
     renderHelp(prefixCls) {
       const help = this.getHelpMessage();
       const children = help ? (
@@ -296,33 +314,28 @@ export default {
         this.helpShow = !!children;
       }
       const transitionProps = getTransitionProps('show-help', {
-        afterEnter: () => this.onHelpAnimEnd('help', true),
-        afterLeave: () => this.onHelpAnimEnd('help', false),
+        onAfterEnter: () => this.onHelpAnimEnd('help', true),
+        onAfterLeave: () => this.onHelpAnimEnd('help', false),
       });
       return (
-        <transition {...transitionProps} key="help">
+        <Transition {...transitionProps} key="help">
           {children}
-        </transition>
+        </Transition>
       );
     },
 
     renderExtra(prefixCls) {
-      const extra = getComponentFromProp(this, 'extra');
+      const extra = getComponent(this, 'extra');
       return extra ? <div class={`${prefixCls}-extra`}>{extra}</div> : null;
     },
 
     renderValidateWrapper(prefixCls, c1, c2, c3) {
-      const props = this.$props;
-      const onlyControl = this.getOnlyControl;
-      const validateStatus =
-        props.validateStatus === undefined && onlyControl
-          ? this.getValidateStatus()
-          : props.validateStatus;
+      const validateStatus = this.validateState;
 
       let classes = `${prefixCls}-item-control`;
       if (validateStatus) {
         classes = classNames(`${prefixCls}-item-control`, {
-          'has-feedback': props.hasFeedback || validateStatus === 'validating',
+          'has-feedback': this.hasFeedback || validateStatus === 'validating',
           'has-success': validateStatus === 'success',
           'has-warning': validateStatus === 'warning',
           'has-error': validateStatus === 'error',
@@ -332,7 +345,7 @@ export default {
       const IconNode = validateStatus && iconMap[validateStatus];
 
       const icon =
-        props.hasFeedback && IconNode ? (
+        this.hasFeedback && IconNode ? (
           <span class={`${prefixCls}-item-children-icon`}>
             <IconNode />
           </span>
@@ -353,15 +366,14 @@ export default {
       const { wrapperCol: contextWrapperCol } = this.isFormItemChildren ? {} : this.FormContext;
       const { wrapperCol } = this;
       const mergedWrapperCol = wrapperCol || contextWrapperCol || {};
-      const { style, id, on, ...restProps } = mergedWrapperCol;
+      const { style, id, ...restProps } = mergedWrapperCol;
       const className = classNames(`${prefixCls}-item-control-wrapper`, mergedWrapperCol.class);
       const colProps = {
-        props: restProps,
+        ...restProps,
         class: className,
         key: 'wrapper',
         style,
         id,
-        on,
       };
       return <Col {...colProps}>{children}</Col>;
     },
@@ -373,9 +385,9 @@ export default {
         labelCol: contextLabelCol,
         colon: contextColon,
       } = this.FormContext;
-      const { labelAlign, labelCol, colon, id, htmlFor } = this;
-      const label = getComponentFromProp(this, 'label');
-      const required = this.isRequired();
+      const { labelAlign, labelCol, colon, fieldId, htmlFor } = this;
+      const label = getComponent(this, 'label');
+      const required = this.isRequired;
       const mergedLabelCol = labelCol || contextLabelCol || {};
 
       const mergedLabelAlign = labelAlign || contextLabelAlign;
@@ -389,7 +401,6 @@ export default {
         class: labelColClass,
         style: labelColStyle,
         id: labelColId,
-        on,
         ...restProps
       } = mergedLabelCol;
       let labelChildren = label;
@@ -406,18 +417,17 @@ export default {
         [`${prefixCls}-item-no-colon`]: !computedColon,
       });
       const colProps = {
-        props: restProps,
+        ...restProps,
         class: labelColClassName,
         key: 'label',
         style: labelColStyle,
         id: labelColId,
-        on,
       };
 
       return label ? (
         <Col {...colProps}>
           <label
-            for={htmlFor || id || this.getId()}
+            for={htmlFor || fieldId}
             class={labelClassName}
             title={typeof label === 'string' ? label : ''}
             onClick={this.onLabelClick}
@@ -427,99 +437,65 @@ export default {
         </Col>
       ) : null;
     },
-    renderChildren(prefixCls) {
+    renderChildren(prefixCls, child) {
       return [
         this.renderLabel(prefixCls),
         this.renderWrapper(
           prefixCls,
           this.renderValidateWrapper(
             prefixCls,
-            this.slotDefault,
+            child,
             this.renderHelp(prefixCls),
             this.renderExtra(prefixCls),
           ),
         ),
       ];
     },
-    renderFormItem() {
+    renderFormItem(child) {
       const { prefixCls: customizePrefixCls } = this.$props;
+      const { class: className, ...restProps } = this.$attrs;
       const getPrefixCls = this.configProvider.getPrefixCls;
       const prefixCls = getPrefixCls('form', customizePrefixCls);
-      const children = this.renderChildren(prefixCls);
+      const children = this.renderChildren(prefixCls, child);
       const itemClassName = {
+        [className]: className,
         [`${prefixCls}-item`]: true,
         [`${prefixCls}-item-with-help`]: this.helpShow,
       };
 
       return (
-        <Row class={classNames(itemClassName)} key="row">
+        <Row class={classNames(itemClassName)} key="row" {...restProps}>
           {children}
         </Row>
       );
     },
-    decoratorOption(vnode) {
-      if (vnode.data && vnode.data.directives) {
-        const directive = find(vnode.data.directives, ['name', 'decorator']);
-        warning(
-          !directive || (directive && Array.isArray(directive.value)),
-          'Form',
-          `Invalid directive: type check failed for directive "decorator". Expected Array, got ${typeof (directive
-            ? directive.value
-            : directive)}. At ${vnode.tag}.`,
-        );
-        return directive ? directive.value : null;
-      } else {
-        return null;
-      }
-    },
-    decoratorChildren(vnodes) {
-      const { FormContext } = this;
-      const getFieldDecorator = FormContext.form.getFieldDecorator;
-      for (let i = 0, len = vnodes.length; i < len; i++) {
-        const vnode = vnodes[i];
-        if (getSlotOptions(vnode).__ANT_FORM_ITEM) {
-          break;
-        }
-        if (vnode.children) {
-          vnode.children = this.decoratorChildren(cloneVNodes(vnode.children));
-        } else if (vnode.componentOptions && vnode.componentOptions.children) {
-          vnode.componentOptions.children = this.decoratorChildren(
-            cloneVNodes(vnode.componentOptions.children),
-          );
-        }
-        const option = this.decoratorOption(vnode);
-        if (option && option[0]) {
-          vnodes[i] = getFieldDecorator(option[0], option[1], this)(vnode);
-        }
-      }
-      return vnodes;
-    },
   },
-
   render() {
-    const {
-      $slots,
-      decoratorFormProps,
-      fieldDecoratorId,
-      fieldDecoratorOptions = {},
-      FormContext,
-    } = this;
-    let child = filterEmpty($slots.default || []);
-    if (decoratorFormProps.form && fieldDecoratorId && child.length) {
-      const getFieldDecorator = decoratorFormProps.form.getFieldDecorator;
-      child[0] = getFieldDecorator(fieldDecoratorId, fieldDecoratorOptions, this)(child[0]);
-      warning(
-        !(child.length > 1),
-        'Form',
-        '`autoFormCreate` just `decorator` then first children. but you can use JSX to support multiple children',
-      );
-      this.slotDefault = child;
-    } else if (FormContext.form) {
-      child = cloneVNodes(child);
-      this.slotDefault = this.decoratorChildren(child);
-    } else {
-      this.slotDefault = child;
+    const { autoLink } = getOptionProps(this);
+    const children = getSlot(this);
+    let firstChildren = children[0];
+    if (this.fieldName && autoLink && isValidElement(firstChildren)) {
+      const originalEvents = getEvents(firstChildren);
+      const originalBlur = originalEvents.onBlur;
+      const originalChange = originalEvents.onChange;
+      firstChildren = cloneElement(firstChildren, {
+        ...(this.fieldId ? { id: this.fieldId } : undefined),
+        onBlur: (...args) => {
+          originalBlur && originalBlur(...args);
+          this.onFieldBlur();
+        },
+        onChange: (...args) => {
+          if (Array.isArray(originalChange)) {
+            for (let i = 0, l = originalChange.length; i < l; i++) {
+              originalChange[i](...args);
+            }
+          } else if (originalChange) {
+            originalChange(...args);
+          }
+          this.onFieldChange();
+        },
+      });
     }
-    return this.renderFormItem();
+    return this.renderFormItem([firstChildren, children.slice(1)]);
   },
 };

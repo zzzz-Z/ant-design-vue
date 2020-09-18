@@ -20,7 +20,9 @@ function chooseDecade(year, event) {
 }
 
 export default {
+  name: 'DecadePanel',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: {
     locale: PropTypes.object,
     value: PropTypes.object,
@@ -35,7 +37,11 @@ export default {
       sValue: this.value || this.defaultValue,
     };
   },
-
+  watch: {
+    value(val) {
+      this.sValue = val;
+    },
+  },
   render() {
     const value = this.sValue;
     const { locale, renderFooter } = this.$props;
@@ -116,7 +122,7 @@ export default {
           />
         </div>
         <div class={`${prefixCls}-body`}>
-          <table class={`${prefixCls}-table`} cellSpacing="0" role="grid">
+          <table class={`${prefixCls}-table`} cellspacing="0" role="grid">
             <tbody class={`${prefixCls}-tbody`}>{decadesEls}</tbody>
           </table>
         </div>

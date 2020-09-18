@@ -1,12 +1,15 @@
+import { provide, inject, cloneVNode } from 'vue';
 import RcDropdown from '../vc-dropdown/src/index';
 import DropdownButton from './dropdown-button';
 import PropTypes from '../_util/vue-types';
 import { cloneElement } from '../_util/vnode';
+import classNames from '../_util/classNames';
 import {
   getOptionProps,
   getPropsData,
-  getComponentFromProp,
-  getListeners,
+  getComponent,
+  isValidElement,
+  getSlot,
 } from '../_util/props-util';
 import getDropdownProps from './getDropdownProps';
 import { ConfigConsumerProps } from '../config-provider';
@@ -15,24 +18,22 @@ import RightOutlined from '@ant-design/icons-vue/RightOutlined';
 const DropdownProps = getDropdownProps();
 const Dropdown = {
   name: 'ADropdown',
+  inheritAttrs: false,
   props: {
     ...DropdownProps,
     prefixCls: PropTypes.string,
     mouseEnterDelay: PropTypes.number.def(0.15),
     mouseLeaveDelay: PropTypes.number.def(0.1),
     placement: DropdownProps.placement.def('bottomLeft'),
+    onVisibleChange: PropTypes.func,
   },
-  model: {
-    prop: 'visible',
-    event: 'visibleChange',
-  },
-  provide() {
+  setup() {
     return {
-      savePopupRef: this.savePopupRef,
+      configProvider: inject('configProvider', ConfigConsumerProps),
     };
   },
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  created() {
+    provide('savePopupRef', this.savePopupRef);
   },
   methods: {
     savePopupRef(ref) {
@@ -49,7 +50,7 @@ const Dropdown = {
       return 'slide-up';
     },
     renderOverlay(prefixCls) {
-      const overlay = getComponentFromProp(this, 'overlay');
+      const overlay = getComponent(this, 'overlay');
       const overlayNode = Array.isArray(overlay) ? overlay[0] : overlay;
       // menu cannot be selectable in dropdown defaultly
       // menu should be focusable in dropdown defaultly
@@ -61,34 +62,32 @@ const Dropdown = {
         </span>
       );
 
-      const fixedModeOverlay =
-        overlayNode && overlayNode.componentOptions
-          ? cloneElement(overlayNode, {
-              props: {
-                mode: 'vertical',
-                selectable,
-                focusable,
-                expandIcon,
-              },
-            })
-          : overlay;
+      const fixedModeOverlay = isValidElement(overlayNode)
+        ? cloneVNode(overlayNode, {
+            mode: 'vertical',
+            selectable,
+            focusable,
+            expandIcon,
+          })
+        : overlay;
       return fixedModeOverlay;
+    },
+    handleVisibleChange(val) {
+      this.$emit('update:visible', val);
+      this.$emit('visibleChange', val);
     },
   },
 
   render() {
-    const { $slots } = this;
     const props = getOptionProps(this);
     const { prefixCls: customizePrefixCls, trigger, disabled, getPopupContainer } = props;
     const { getPopupContainer: getContextPopupContainer } = this.configProvider;
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('dropdown', customizePrefixCls);
-
-    const dropdownTrigger = cloneElement($slots.default, {
-      class: `${prefixCls}-trigger`,
-      props: {
-        disabled,
-      },
+    const child = getSlot(this)[0];
+    const dropdownTrigger = cloneElement(child, {
+      class: classNames(child?.props?.class, `${prefixCls}-trigger`),
+      disabled,
     });
     const triggerActions = disabled ? [] : trigger;
     let alignPoint;
@@ -96,22 +95,17 @@ const Dropdown = {
       alignPoint = true;
     }
     const dropdownProps = {
-      props: {
-        alignPoint,
-        ...props,
-        prefixCls,
-        getPopupContainer: getPopupContainer || getContextPopupContainer,
-        transitionName: this.getTransitionName(),
-        trigger: triggerActions,
-      },
-      on: getListeners(this),
+      alignPoint,
+      ...props,
+      ...this.$attrs,
+      prefixCls,
+      getPopupContainer: getPopupContainer || getContextPopupContainer,
+      transitionName: this.getTransitionName(),
+      trigger: triggerActions,
+      overlay: this.renderOverlay(prefixCls),
+      onVisibleChange: this.handleVisibleChange,
     };
-    return (
-      <RcDropdown {...dropdownProps}>
-        {dropdownTrigger}
-        <template slot="overlay">{this.renderOverlay(prefixCls)}</template>
-      </RcDropdown>
-    );
+    return <RcDropdown {...dropdownProps}>{dropdownTrigger}</RcDropdown>;
   },
 };
 

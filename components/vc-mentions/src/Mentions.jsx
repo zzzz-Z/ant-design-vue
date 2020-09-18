@@ -1,13 +1,9 @@
+import { provide } from 'vue';
+import classNames from '../../_util/classNames';
 import omit from 'omit.js';
 import KeyCode from '../../_util/KeyCode';
 import BaseMixin from '../../_util/BaseMixin';
-import {
-  getSlots,
-  hasProp,
-  getOptionProps,
-  getListeners,
-  initDefaultProps,
-} from '../../_util/props-util';
+import { hasProp, getOptionProps, initDefaultProps } from '../../_util/props-util';
 import warning from 'warning';
 import {
   getBeforeSelectionText,
@@ -24,15 +20,9 @@ const Mentions = {
   name: 'Mentions',
   mixins: [BaseMixin],
   inheritAttrs: false,
-  model: {
-    prop: 'value',
-    event: 'change',
-  },
   props: initDefaultProps(vcMentionsProps, defaultProps),
-  provide() {
-    return {
-      mentionsContext: this,
-    };
+  created() {
+    this.mentionsContext = provide('mentionsContext', this);
   },
   data() {
     const { value = '', defaultValue = '' } = this.$props;
@@ -70,7 +60,7 @@ const Mentions = {
       } else {
         this.$forceUpdate();
       }
-      this.$emit('change', value);
+      this.__emit('change', value);
     },
     onChange({ target: { value, composing }, isComposing }) {
       if (isComposing || composing) return;
@@ -97,9 +87,14 @@ const Mentions = {
         this.stopMeasure();
       } else if (which === KeyCode.ENTER) {
         // Measure hit
-        const option = this.getOptions()[activeIndex];
-        this.selectOption(option);
         event.preventDefault();
+        const options = this.getOptions();
+        if (!options.length) {
+          this.stopMeasure();
+          return;
+        }
+        const option = options[activeIndex];
+        this.selectOption(option);
       }
     },
     /**
@@ -153,7 +148,7 @@ const Mentions = {
          * If met `space` means user finished searching.
          */
         if (validateMeasure) {
-          this.$emit('search', measureText, measurePrefix);
+          this.__emit('search', measureText, measurePrefix);
         }
       } else if (measuring) {
         this.stopMeasure();
@@ -175,7 +170,7 @@ const Mentions = {
       window.clearTimeout(this.focusId);
       const { isFocus } = this.$data;
       if (!isFocus && event) {
-        this.$emit('focus', event);
+        this.__emit('focus', event);
       }
       this.setState({ isFocus: true });
     },
@@ -183,8 +178,8 @@ const Mentions = {
       this.focusId = window.setTimeout(() => {
         this.setState({ isFocus: false });
         this.stopMeasure();
-        this.$emit('blur', event);
-      }, 0);
+        this.__emit('blur', event);
+      }, 100);
     },
     selectOption(option) {
       const { _value: value, measureLocation, measurePrefix } = this.$data;
@@ -203,7 +198,7 @@ const Mentions = {
         setInputSelection(this.$refs.textarea, selectionLocation);
       });
 
-      this.$emit('select', option, measurePrefix);
+      this.__emit('select', option, measurePrefix);
     },
     setActiveIndex(activeIndex) {
       this.setState({
@@ -215,8 +210,7 @@ const Mentions = {
       const { filterOption, children = [] } = this.$props;
       const list = (Array.isArray(children) ? children : [children])
         .map(item => {
-          const children = getSlots(item).default;
-          return { ...getOptionProps(item), children };
+          return { ...getOptionProps(item), children: item.children.default?.() };
         })
         .filter(option => {
           /** Return all result if `filterOption` is false. */
@@ -260,11 +254,12 @@ const Mentions = {
       prefixCls,
       placement,
       transitionName,
-      autoFocus,
       notFoundContent,
       getPopupContainer,
       ...restProps
     } = getOptionProps(this);
+
+    const { class: className, style, ...otherAttrs } = this.$attrs;
 
     const inputProps = omit(restProps, [
       'value',
@@ -277,28 +272,21 @@ const Mentions = {
     ]);
 
     const options = measuring ? this.getOptions() : [];
-
+    const textareaProps = {
+      ...inputProps,
+      ...otherAttrs,
+      onChange: noop,
+      onSelect: noop,
+      value,
+      onInput: this.onChange,
+      onBlur: this.onInputBlur,
+      onKeydown: this.onKeyDown,
+      onKeyup: this.onKeyUp,
+      onFocus: this.onInputFocus,
+    };
     return (
-      <div class={prefixCls}>
-        <textarea
-          ref="textarea"
-          {...{
-            directives: [{ name: 'ant-input' }],
-            attrs: { ...inputProps, ...this.$attrs },
-            domProps: {
-              value,
-            },
-            on: {
-              ...getListeners(this),
-              select: noop,
-              change: noop,
-              input: this.onChange,
-              keydown: this.onKeyDown,
-              keyup: this.onKeyUp,
-              blur: this.onInputBlur,
-            },
-          }}
-        />
+      <div class={classNames(prefixCls, className)} style={style}>
+        <textarea ref="textarea" {...textareaProps} />
         {measuring && (
           <div ref="measure" class={`${prefixCls}-measure`}>
             {value.slice(0, measureLocation)}

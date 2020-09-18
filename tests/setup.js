@@ -1,5 +1,3 @@
-import Vue from 'vue';
-import Base from '../components/base';
 // Vue.config.silent = true
 
 /* eslint-disable global-require */
@@ -10,6 +8,15 @@ if (typeof window !== 'undefined') {
     global.window.dispatchEvent(new Event('resize'));
   };
   global.window.scrollTo = () => {};
+  if (!window.matchMedia) {
+    Object.defineProperty(global.window, 'matchMedia', {
+      value: jest.fn(query => ({
+        matches: query.includes('max-width'),
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+      })),
+    });
+  }
 }
 
 // The built-in requestAnimationFrame and cancelAnimationFrame not working with jest.runFakeTimes()
@@ -26,24 +33,23 @@ const mockMath = Object.create(global.Math);
 mockMath.random = () => 0.5;
 global.Math = mockMath;
 
-Vue.use(Base);
-Vue.component('transition-group', {
-  props: ['tag'],
-  render(createElement) {
-    return createElement(this.tag || 'div', null, this.$slots.default);
-  },
-});
+// Vue.component('transition-group', {
+//   props: ['tag'],
+//   render(createElement) {
+//     return createElement(this.tag || 'div', null, this.$slots.default);
+//   },
+// });
 
-Vue.prototype.$emit = function() {
-  const vm = this;
-  const args = [].slice.call(arguments, 0);
-  const filterEvent = [];
-  const eventName = args[0];
-  if (args.length && vm.$listeners[eventName]) {
-    if (filterEvent.includes(eventName)) {
-      vm.$emit(eventName, ...args.slice(1));
-    } else {
-      vm.$listeners[eventName](...args.slice(1));
-    }
-  }
-};
+// Vue.prototype.$emit = function() {
+//   const vm = this;
+//   const args = [].slice.call(arguments, 0);
+//   const filterEvent = [];
+//   const eventName = args[0];
+//   if (args.length && vm.$listeners[eventName]) {
+//     if (filterEvent.includes(eventName)) {
+//       vm.$emit(eventName, ...args.slice(1));
+//     } else {
+//       vm.$listeners[eventName](...args.slice(1));
+//     }
+//   }
+// };

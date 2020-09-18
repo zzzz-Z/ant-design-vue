@@ -2,19 +2,22 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
+import { VNodeChild } from 'vue';
+import { AntdComponent, AntdProps } from '../component';
 
 export declare class DescriptionsItem extends AntdComponent {
-  /**
-   * the label of descriptions item
-   * @type any
-   */
-  label: any;
+  $props: AntdProps & {
+    /**
+     * the label of descriptions item
+     * @type any
+     */
+    label?: VNodeChild | JSX.Element;
 
-  /**
-   * can be set to small large or omitted
-   * @default 1
-   * @type number
-   */
-  span: number;
+    /**
+     * can be set to small large or omitted
+     * @default 1
+     * @type number
+     */
+    span?: number;
+  };
 }

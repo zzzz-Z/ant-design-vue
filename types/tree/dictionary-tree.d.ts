@@ -2,14 +2,17 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
-import { Tree } from './tree';
+import { AntdComponent, AntdProps } from '../component';
+import { TreeProps } from './tree';
 
-export declare class DictionaryTree extends Tree {
+interface DictionaryTreeProps extends TreeProps {
   /**
-   * Directory open logic, optional false 'click' 'dblclick'
+   * Directory open logic, optional `false` 'click' 'dblclick'
    * @default 'click'
    * @type string
    */
-  expandAction: string;
+  expandAction?: string | boolean;
+}
+export declare class DictionaryTree extends AntdComponent {
+  $props: AntdProps & DictionaryTreeProps;
 }

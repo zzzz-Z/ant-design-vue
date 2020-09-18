@@ -1,10 +1,10 @@
 import PropTypes from '../../_util/vue-types';
-import classNames from 'classnames';
+import classNames from '../../_util/classNames';
 import warning from 'warning';
-import { hasProp, initDefaultProps, getOptionProps, getSlots } from '../../_util/props-util';
+import { hasProp, initDefaultProps, getOptionProps, getSlot } from '../../_util/props-util';
 import { cloneElement } from '../../_util/vnode';
 import BaseMixin from '../../_util/BaseMixin';
-import proxyComponent from '../../_util/proxyComponent';
+import syncWatch from '../../_util/syncWatch';
 import {
   convertTreeToEntities,
   convertDataToTree,
@@ -20,6 +20,7 @@ import {
   mapChildren,
   conductCheck,
   warnOnlyTreeNode,
+  getDataAndAria,
 } from './util';
 
 /**
@@ -30,8 +31,11 @@ import {
 function getWatch(keys = []) {
   const watch = {};
   keys.forEach(k => {
-    watch[k] = function() {
-      this.needSyncKeys[k] = true;
+    watch[k] = {
+      handler() {
+        this.needSyncKeys[k] = true;
+      },
+      flush: 'sync',
     };
   });
   return watch;
@@ -39,11 +43,12 @@ function getWatch(keys = []) {
 
 const Tree = {
   name: 'Tree',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: initDefaultProps(
     {
       prefixCls: PropTypes.string,
-      tabIndex: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      tabindex: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
       children: PropTypes.any,
       treeData: PropTypes.array, // Generate treeNode by children
       showLine: PropTypes.bool,
@@ -85,7 +90,7 @@ const Tree = {
       openTransitionName: PropTypes.string,
       openAnimation: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
       switcherIcon: PropTypes.any,
-      _propsSymbol: PropTypes.any,
+      __propsSymbol__: PropTypes.any,
     },
     {
       prefixCls: 'rc-tree',
@@ -138,6 +143,7 @@ const Tree = {
   },
 
   watch: {
+    // watch 引用类型的改变
     ...getWatch([
       'treeData',
       'children',
@@ -147,10 +153,10 @@ const Tree = {
       'checkedKeys',
       'loadedKeys',
     ]),
-    __propsSymbol__() {
+    __propsSymbol__: syncWatch(function() {
       this.setState(this.getDerivedState(getOptionProps(this), this.$data));
       this.needSyncKeys = {};
-    },
+    }),
   },
 
   methods: {
@@ -169,7 +175,7 @@ const Tree = {
 
       // Check if `treeData` or `children` changed and save into the state.
       if (needSync('treeData')) {
-        treeNode = convertDataToTree(this.$createElement, props.treeData);
+        treeNode = convertDataToTree(props.treeData);
       } else if (needSync('children')) {
         treeNode = props.children;
       }
@@ -248,7 +254,7 @@ const Tree = {
     onNodeDragStart(event, node) {
       const { _expandedKeys } = this.$data;
       const { eventKey } = node;
-      const children = getSlots(node).default;
+      const children = getSlot(node);
       this.dragNode = node;
 
       this.setState({
@@ -272,7 +278,7 @@ const Tree = {
       const { _expandedKeys: expandedKeys } = this.$data;
       const { pos, eventKey } = node;
 
-      if (!this.dragNode || !node.$refs.selectHandle) return;
+      if (!this.dragNode || !node.selectHandle) return;
 
       const dropPosition = calcDropPosition(event, node);
 
@@ -319,7 +325,7 @@ const Tree = {
       const { eventKey } = node;
       const { _dragOverNodeKey, _dropPosition } = this.$data;
       // Update drag position
-      if (this.dragNode && eventKey === _dragOverNodeKey && node.$refs.selectHandle) {
+      if (this.dragNode && eventKey === _dragOverNodeKey && node.selectHandle) {
         const dropPosition = calcDropPosition(event, node);
 
         if (dropPosition === _dropPosition) return;
@@ -417,7 +423,6 @@ const Tree = {
         selectedNodes,
         nativeEvent: e,
       };
-      this.__emit('update:selectedKeys', selectedKeys);
       this.__emit('select', selectedKeys, eventObj);
     },
     onNodeCheck(e, treeNode, checked) {
@@ -551,7 +556,6 @@ const Tree = {
         expanded: targetExpanded,
         nativeEvent: e,
       });
-      this.__emit('update:expandedKeys', expandedKeys);
 
       // Async Load data
       if (targetExpanded && loadData) {
@@ -637,21 +641,19 @@ const Tree = {
       }
 
       return cloneElement(child, {
-        props: {
-          eventKey: key,
-          expanded: expandedKeys.indexOf(key) !== -1,
-          selected: selectedKeys.indexOf(key) !== -1,
-          loaded: loadedKeys.indexOf(key) !== -1,
-          loading: loadingKeys.indexOf(key) !== -1,
-          checked: this.isKeyChecked(key),
-          halfChecked: halfCheckedKeys.indexOf(key) !== -1,
-          pos,
+        eventKey: key,
+        expanded: expandedKeys.indexOf(key) !== -1,
+        selected: selectedKeys.indexOf(key) !== -1,
+        loaded: loadedKeys.indexOf(key) !== -1,
+        loading: loadingKeys.indexOf(key) !== -1,
+        checked: this.isKeyChecked(key),
+        halfChecked: halfCheckedKeys.indexOf(key) !== -1,
+        pos,
 
-          // [Legacy] Drag props
-          dragOver: dragOverNodeKey === key && dropPosition === 0,
-          dragOverGapTop: dragOverNodeKey === key && dropPosition === -1,
-          dragOverGapBottom: dragOverNodeKey === key && dropPosition === 1,
-        },
+        // [Legacy] Drag props
+        dragOver: dragOverNodeKey === key && dropPosition === 0,
+        dragOverGapTop: dragOverNodeKey === key && dropPosition === -1,
+        dragOverGapBottom: dragOverNodeKey === key && dropPosition === 1,
         key,
       });
     },
@@ -659,16 +661,19 @@ const Tree = {
 
   render() {
     const { _treeNode: treeNode } = this.$data;
-    const { prefixCls, focusable, showLine, tabIndex = 0 } = this.$props;
-
+    const { prefixCls, focusable, showLine, tabindex = 0 } = this.$props;
+    const domProps = getDataAndAria({ ...this.$props, ...this.$attrs });
+    const { class: className, style } = this.$attrs;
     return (
       <ul
-        class={classNames(prefixCls, {
+        {...domProps}
+        class={classNames(prefixCls, className, {
           [`${prefixCls}-show-line`]: showLine,
         })}
+        style={style}
         role="tree"
         unselectable="on"
-        tabIndex={focusable ? tabIndex : null}
+        tabindex={focusable ? tabindex : null}
       >
         {mapChildren(treeNode, (node, index) => this.renderTreeNode(node, index))}
       </ul>
@@ -678,4 +683,4 @@ const Tree = {
 
 export { Tree };
 
-export default proxyComponent(Tree);
+export default Tree;

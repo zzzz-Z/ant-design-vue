@@ -2,7 +2,9 @@ const libDir = process.env.LIB_DIR;
 
 const transformIgnorePatterns = [
   '/dist/',
-  'node_modules/[^/]+?/(?!(es|node_modules)/)', // Ignore modules without es dir
+  // Ignore modules without es dir.
+  // Update: @babel/runtime should also be transformed
+  'node_modules/(?!.*(@babel|lodash-es))[^/]+?/(?!(es|node_modules)/)',
 ];
 
 module.exports = {
@@ -12,7 +14,7 @@ module.exports = {
   modulePathIgnorePatterns: ['/_site/'],
   testPathIgnorePatterns: ['/node_modules/', 'node'],
   transform: {
-    '.*\\.(vue|md)$': '<rootDir>/node_modules/vue-jest',
+    '^.+\\.(vue|md)$': '<rootDir>/node_modules/vue-jest',
     '^.+\\.(js|jsx)$': '<rootDir>/node_modules/babel-jest',
     '^.+\\.svg$': '<rootDir>/node_modules/jest-transform-stub',
   },
@@ -21,7 +23,6 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
     'ant-design-vue$': '<rootDir>/components/index.js',
     'ant-design-vue/es': '<rootDir>/components',
-    '^vue$': 'vue/dist/vue.common.js',
   },
   snapshotSerializers: ['<rootDir>/node_modules/jest-serializer-vue'],
   collectCoverage: process.env.COVERAGE === 'true',
@@ -39,5 +40,6 @@ module.exports = {
     '!components/style.js',
     '!**/node_modules/**',
   ],
+  testEnvironment: 'jest-environment-jsdom-fifteen',
   transformIgnorePatterns,
 };

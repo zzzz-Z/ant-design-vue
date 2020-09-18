@@ -9,6 +9,7 @@ function noop() {}
 
 const MonthTable = {
   name: 'MonthTable',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
     cellRender: PropTypes.func,
@@ -90,13 +91,13 @@ const MonthTable = {
         if (cellRender) {
           const currentValue = value.clone();
           currentValue.month(monthData.value);
-          cellEl = cellRender(currentValue, locale);
+          cellEl = cellRender({ current: currentValue, locale });
         } else {
           let content;
           if (contentRender) {
             const currentValue = value.clone();
             currentValue.month(monthData.value);
-            content = contentRender(currentValue, locale);
+            content = contentRender({ current: currentValue, locale });
           } else {
             content = monthData.content;
           }
@@ -122,7 +123,7 @@ const MonthTable = {
     });
 
     return (
-      <table class={`${prefixCls}-table`} cellSpacing="0" role="grid">
+      <table class={`${prefixCls}-table`} cellspacing="0" role="grid">
         <tbody class={`${prefixCls}-tbody`}>{monthsEls}</tbody>
       </table>
     );

@@ -1,11 +1,15 @@
 // based on rc-resize-observer 0.1.3
 import ResizeObserver from 'resize-observer-polyfill';
+import BaseMixin from '../_util/BaseMixin';
+import { findDOMNode } from '../_util/props-util';
 
 // Still need to be compatible with React 15, we use class component here
 const VueResizeObserver = {
   name: 'ResizeObserver',
+  mixins: [BaseMixin],
   props: {
     disabled: Boolean,
+    onResize: Function,
   },
   data() {
     this.currentElement = null;
@@ -23,7 +27,7 @@ const VueResizeObserver = {
   updated() {
     this.onComponentUpdated();
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.destroyObserver();
   },
   methods: {
@@ -37,7 +41,7 @@ const VueResizeObserver = {
       }
 
       // Unregister if element changed
-      const element = this.$el;
+      const element = findDOMNode(this);
       const elementChanged = element !== this.currentElement;
       if (elementChanged) {
         this.destroyObserver();
@@ -45,12 +49,12 @@ const VueResizeObserver = {
       }
 
       if (!this.resizeObserver && element) {
-        this.resizeObserver = new ResizeObserver(this.onResize);
+        this.resizeObserver = new ResizeObserver(this.handleResize);
         this.resizeObserver.observe(element);
       }
     },
 
-    onResize(entries) {
+    handleResize(entries) {
       const { target } = entries[0];
       const { width, height } = target.getBoundingClientRect();
       /**
@@ -64,8 +68,8 @@ const VueResizeObserver = {
       if (this.width !== fixedWidth || this.height !== fixedHeight) {
         const size = { width: fixedWidth, height: fixedHeight };
         this.width = fixedWidth;
-        this.fixedHeight = fixedHeight;
-        this.$emit('resize', size);
+        this.height = fixedHeight;
+        this.__emit('resize', size);
       }
     },
 

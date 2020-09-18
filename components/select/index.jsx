@@ -1,22 +1,16 @@
+import { provide, inject } from 'vue';
 import warning from '../_util/warning';
 import omit from 'omit.js';
 import PropTypes from '../_util/vue-types';
 import { Select as VcSelect, Option, OptGroup } from '../vc-select';
 import { ConfigConsumerProps } from '../config-provider';
-import {
-  getComponentFromProp,
-  getOptionProps,
-  filterEmpty,
-  isValidElement,
-  getListeners,
-} from '../_util/props-util';
+import { getComponent, getOptionProps, isValidElement, getSlot } from '../_util/props-util';
 import CloseOutlined from '@ant-design/icons-vue/CloseOutlined';
 import CloseCircleFilled from '@ant-design/icons-vue/CloseCircleFilled';
 import CheckOutlined from '@ant-design/icons-vue/CheckOutlined';
 import DownOutlined from '@ant-design/icons-vue/DownOutlined';
 import LoadingOutlined from '@ant-design/icons-vue/LoadingOutlined';
 import { cloneElement } from '../_util/vnode';
-import Base from '../base';
 
 const AbstractSelectProps = () => ({
   prefixCls: PropTypes.string,
@@ -28,7 +22,7 @@ const AbstractSelectProps = () => ({
   showSearch: PropTypes.bool,
   allowClear: PropTypes.bool,
   disabled: PropTypes.bool,
-  tabIndex: PropTypes.number,
+  tabindex: PropTypes.number,
   placeholder: PropTypes.any,
   defaultActiveFirstOption: PropTypes.bool,
   dropdownClassName: PropTypes.string,
@@ -37,7 +31,7 @@ const AbstractSelectProps = () => ({
   dropdownMatchSelectWidth: PropTypes.bool,
   // onSearch: (value: string) => any,
   filterOption: PropTypes.oneOfType([PropTypes.bool, PropTypes.func]),
-  autoFocus: PropTypes.bool,
+  autofocus: PropTypes.bool,
   backfill: PropTypes.bool,
   showArrow: PropTypes.bool,
   getPopupContainer: PropTypes.func,
@@ -107,19 +101,13 @@ const Select = {
     choiceTransitionName: PropTypes.string.def('zoom'),
   },
   propTypes: SelectPropTypes,
-  model: {
-    prop: 'value',
-    event: 'change',
-  },
-  provide() {
+  setup() {
     return {
-      savePopupRef: this.savePopupRef,
+      configProvider: inject('configProvider', ConfigConsumerProps),
     };
   },
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
-  },
   created() {
+    provide('savePopupRef', this.savePopupRef);
     warning(
       this.$props.mode !== 'combobox',
       'Select',
@@ -130,15 +118,14 @@ const Select = {
   },
   methods: {
     getNotFoundContent(renderEmpty) {
-      const h = this.$createElement;
-      const notFoundContent = getComponentFromProp(this, 'notFoundContent');
+      const notFoundContent = getComponent(this, 'notFoundContent');
       if (notFoundContent !== undefined) {
         return notFoundContent;
       }
       if (this.isCombobox()) {
         return null;
       }
-      return renderEmpty(h, 'Select');
+      return renderEmpty('Select');
     },
     savePopupRef(ref) {
       this.popupRef = ref;
@@ -157,7 +144,7 @@ const Select = {
 
     renderSuffixIcon(prefixCls) {
       const { loading } = this.$props;
-      let suffixIcon = getComponentFromProp(this, 'suffixIcon');
+      let suffixIcon = getComponent(this, 'suffixIcon');
       suffixIcon = Array.isArray(suffixIcon) ? suffixIcon[0] : suffixIcon;
       if (suffixIcon) {
         return isValidElement(suffixIcon)
@@ -180,17 +167,18 @@ const Select = {
       showArrow,
       ...restProps
     } = getOptionProps(this);
+    const { class: className } = this.$attrs;
 
     const getPrefixCls = this.configProvider.getPrefixCls;
     const renderEmpty = this.configProvider.renderEmpty;
     const prefixCls = getPrefixCls('select', customizePrefixCls);
 
     const { getPopupContainer: getContextPopupContainer } = this.configProvider;
-    let removeIcon = getComponentFromProp(this, 'removeIcon');
+    let removeIcon = getComponent(this, 'removeIcon');
     removeIcon = Array.isArray(removeIcon) ? removeIcon[0] : removeIcon;
-    let clearIcon = getComponentFromProp(this, 'clearIcon');
+    let clearIcon = getComponent(this, 'clearIcon');
     clearIcon = Array.isArray(clearIcon) ? clearIcon[0] : clearIcon;
-    let menuItemSelectedIcon = getComponentFromProp(this, 'menuItemSelectedIcon');
+    let menuItemSelectedIcon = getComponent(this, 'menuItemSelectedIcon');
     menuItemSelectedIcon = Array.isArray(menuItemSelectedIcon)
       ? menuItemSelectedIcon[0]
       : menuItemSelectedIcon;
@@ -203,6 +191,7 @@ const Select = {
     ]);
 
     const cls = {
+      [className]: className,
       [`${prefixCls}-lg`]: size === 'large',
       [`${prefixCls}-sm`]: size === 'small',
       [`${prefixCls}-show-arrow`]: showArrow,
@@ -235,47 +224,42 @@ const Select = {
         : menuItemSelectedIcon)) || <CheckOutlined class={`${prefixCls}-selected-icon`} />;
 
     const selectProps = {
-      props: {
-        inputIcon: this.renderSuffixIcon(prefixCls),
-        removeIcon: finalRemoveIcon,
-        clearIcon: finalClearIcon,
-        menuItemSelectedIcon: finalMenuItemSelectedIcon,
-        showArrow,
-        ...rest,
-        ...modeConfig,
-        prefixCls,
-        optionLabelProp: optionLabelProp || 'children',
-        notFoundContent: this.getNotFoundContent(renderEmpty),
-        maxTagPlaceholder: getComponentFromProp(this, 'maxTagPlaceholder'),
-        placeholder: getComponentFromProp(this, 'placeholder'),
-        children: options
-          ? options.map(option => {
-              const { key, label = option.title, on, class: cls, style, ...restOption } = option;
-              return (
-                <Option key={key} {...{ props: restOption, on, class: cls, style }}>
-                  {label}
-                </Option>
-              );
-            })
-          : filterEmpty(this.$slots.default),
-        __propsSymbol__: Symbol(),
-        dropdownRender: getComponentFromProp(this, 'dropdownRender', {}, false),
-        getPopupContainer: getPopupContainer || getContextPopupContainer,
-      },
-      on: getListeners(this),
+      inputIcon: this.renderSuffixIcon(prefixCls),
+      removeIcon: finalRemoveIcon,
+      clearIcon: finalClearIcon,
+      menuItemSelectedIcon: finalMenuItemSelectedIcon,
+      showArrow,
+      ...rest,
+      ...modeConfig,
+      prefixCls,
+      optionLabelProp: optionLabelProp || 'children',
+      notFoundContent: this.getNotFoundContent(renderEmpty),
+      maxTagPlaceholder: getComponent(this, 'maxTagPlaceholder'),
+      placeholder: getComponent(this, 'placeholder'),
+      children: options
+        ? options.map(option => {
+            const { key, label = option.title, class: cls, style, ...restOption } = option;
+            return (
+              <Option key={key} {...{ class: cls, style, ...restOption }}>
+                {label}
+              </Option>
+            );
+          })
+        : getSlot(this),
+      dropdownRender: getComponent(this, 'dropdownRender', {}, false),
+      getPopupContainer: getPopupContainer || getContextPopupContainer,
+      ...this.$attrs,
       class: cls,
       ref: 'vcSelect',
     };
-    return <VcSelect {...selectProps} />;
+    return <VcSelect {...selectProps} __propsSymbol__={[]} />;
   },
 };
 
 /* istanbul ignore next */
-Select.install = function(Vue) {
-  Vue.use(Base);
-  Vue.component(Select.name, Select);
-  Vue.component(Select.Option.name, Select.Option);
-  Vue.component(Select.OptGroup.name, Select.OptGroup);
+Select.install = function(app) {
+  app.component(Select.name, Select);
+  app.component(Select.Option.name, Select.Option);
+  app.component(Select.OptGroup.name, Select.OptGroup);
 };
-
 export default Select;

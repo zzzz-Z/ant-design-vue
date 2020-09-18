@@ -2,9 +2,8 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
-import { VNode } from 'vue';
-import { ScopedSlot } from 'vue/types/vnode';
+import { VNodeChild } from 'vue';
+import { AntdComponent, AntdProps } from '../component';
 
 export interface ColumnFilterItem {
   text?: string;
@@ -14,22 +13,40 @@ export interface ColumnFilterItem {
 
 export declare type SortOrder = 'ascend' | 'descend';
 
-export declare class Column extends AntdComponent {
+export interface RecordProps<T> {
+  text: any;
+  record: T;
+  index: number;
+}
+
+export interface FilterDropdownProps {
+  prefixCls?: string;
+  setSelectedKeys?: (selectedKeys: string[]) => void;
+  selectedKeys?: string[];
+  confirm?: () => void;
+  clearFilters?: () => void;
+  filters?: ColumnFilterItem[];
+  getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement;
+  visible?: boolean;
+}
+
+export declare type CustomRenderFunction<T> = (record: RecordProps<T>) => VNodeChild | JSX.Element;
+
+export interface ColumnProps<T> {
   /**
    * specify how content is aligned
    * @default 'left'
    * @type string
    */
   align?: 'left' | 'right' | 'center';
-  
+
   /**
-   * ellipsize cell content, not working with sorter and filters for now. 
+   * ellipsize cell content, not working with sorter and filters for now.
    * tableLayout would be fixed when ellipsis is true.
    * @default false
    * @type boolean
    */
   ellipsis?: boolean;
-
 
   /**
    * Span of this column's title
@@ -42,11 +59,11 @@ export declare class Column extends AntdComponent {
    * @type string
    */
   dataIndex?: string;
-  
+
   /**
-  * Default filtered values	
-  * @type string[]
-  */
+   * Default filtered values
+   * @type string[]
+   */
   defaultFilteredValue?: string[];
 
   /**
@@ -59,7 +76,10 @@ export declare class Column extends AntdComponent {
    * Customized filter overlay
    * @type any (slot)
    */
-  filterDropdown?: any;
+  filterDropdown?:
+    | VNodeChild
+    | JSX.Element
+    | ((props: FilterDropdownProps) => VNodeChild | JSX.Element);
 
   /**
    * Whether filterDropdown is visible
@@ -85,7 +105,7 @@ export declare class Column extends AntdComponent {
    * @default false
    * @type any
    */
-  filterIcon?: any;
+  filterIcon?: boolean | VNodeChild | JSX.Element;
 
   /**
    * Whether multiple filters can be selected
@@ -117,7 +137,7 @@ export declare class Column extends AntdComponent {
    * Renderer of the table cell. The return value should be a VNode, or an object for colSpan/rowSpan config
    * @type Function | ScopedSlot
    */
-  customRender?: Function | ScopedSlot;
+  customRender?: CustomRenderFunction<T> | VNodeChild | JSX.Element;
 
   /**
    * Sort function for local sort, see Array.sort's compareFunction. If you need sort buttons only, set to true
@@ -130,19 +150,19 @@ export declare class Column extends AntdComponent {
    * @type boolean | string
    */
   sortOrder?: boolean | SortOrder;
-  
+
   /**
-  * supported sort way, could be 'ascend', 'descend'
-  * @default ['ascend', 'descend']
-  * @type string[]
-  */
-  sortDirections?: string[];
-  
+   * supported sort way, could be 'ascend', 'descend'
+   * @default ['ascend', 'descend']
+   * @type string[]
+   */
+  sortDirections?: SortOrder[];
+
   /**
    * Title of this column
    * @type any (string | slot)
    */
-  title?: any;
+  title?: VNodeChild | JSX.Element;
 
   /**
    * Width of this column
@@ -154,38 +174,19 @@ export declare class Column extends AntdComponent {
    * Set props on per cell
    * @type Function
    */
-  customCell?: (
-    record: any,
-    rowIndex: number,
-  ) => {
-    props: object;
-    attrs: object;
-    on: object;
-    class: object;
-    style: object;
-    nativeOn: object;
-  };
+  customCell?: (record: T, rowIndex: number) => object;
 
   /**
    * Set props on per header cell
-   * @type
+   * @type object
    */
-  customHeaderCell?: (
-    column: any,
-  ) => {
-    props: object;
-    attrs: object;
-    on: object;
-    class: object;
-    style: object;
-    nativeOn: object;
-  };
+  customHeaderCell?: (column: ColumnProps<T>) => object;
 
   /**
    * Callback executed when the confirm filter button is clicked, Use as a filter event when using template or jsx
    * @type Function
    */
-  onFilter?: Function;
+  onFilter?: (value: any, record: T) => boolean;
 
   /**
    * Callback executed when filterDropdownVisible is changed, Use as a filterDropdownVisible event when using template or jsx
@@ -198,12 +199,9 @@ export declare class Column extends AntdComponent {
    * such as slots: { filterIcon: 'XXX'}
    * @type object
    */
-  slots?: object;
+  slots?: Record<string, string>;
+}
 
-  /**
-   * When using columns, you can use this property to configure the properties that support the slot-scope,
-   * such as scopedSlots: { customRender: 'XXX'}
-   * @type object
-   */
-  scopedSlots?: object;
+export declare class Column<T> extends AntdComponent {
+  $props: AntdProps & ColumnProps<T>;
 }

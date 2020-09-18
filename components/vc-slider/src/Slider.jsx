@@ -1,5 +1,4 @@
 import PropTypes from '../../_util/vue-types';
-import warning from '../../_util/warning';
 import BaseMixin from '../../_util/BaseMixin';
 import { hasProp } from '../../_util/props-util';
 import Track from './common/Track';
@@ -8,13 +7,14 @@ import * as utils from './utils';
 
 const Slider = {
   name: 'Slider',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
     defaultValue: PropTypes.number,
     value: PropTypes.number,
     disabled: PropTypes.bool,
-    autoFocus: PropTypes.bool,
-    tabIndex: PropTypes.number,
+    autofocus: PropTypes.bool,
+    tabindex: PropTypes.number,
     reverse: PropTypes.bool,
     min: PropTypes.number,
     max: PropTypes.number,
@@ -22,17 +22,6 @@ const Slider = {
   data() {
     const defaultValue = this.defaultValue !== undefined ? this.defaultValue : this.min;
     const value = this.value !== undefined ? this.value : defaultValue;
-
-    warning(
-      !hasProp(this, 'minimumTrackStyle'),
-      'Slider',
-      'minimumTrackStyle will be deprecate, please use trackStyle instead.',
-    );
-    warning(
-      !hasProp(this, 'maximumTrackStyle'),
-      'Slider',
-      'maximumTrackStyle will be deprecate, please use railStyle instead.',
-    );
     return {
       sValue: this.trimAlignValue(value),
       dragging: false,
@@ -62,7 +51,7 @@ const Slider = {
 
       this.setState({ sValue: nextValue });
       if (utils.isValueOutOfRange(newValue, this.$props)) {
-        this.$emit('change', nextValue);
+        this.__emit('change', nextValue);
       }
     },
     onChange(state) {
@@ -73,12 +62,12 @@ const Slider = {
       }
 
       const changedValue = nextState.sValue;
-      this.$emit('change', changedValue);
+      this.__emit('change', changedValue);
     },
     onStart(position) {
       this.setState({ dragging: true });
       const { sValue } = this;
-      this.$emit('beforeChange', sValue);
+      this.__emit('beforeChange', sValue);
 
       const value = this.calcValueByPos(position);
 
@@ -93,7 +82,7 @@ const Slider = {
       const { dragging } = this;
       this.removeDocumentEvents();
       if (dragging || force) {
-        this.$emit('afterChange', this.sValue);
+        this.__emit('afterChange', this.sValue);
       }
       this.setState({ dragging: false });
     },
@@ -116,7 +105,7 @@ const Slider = {
         if (value === sValue) return;
 
         this.onChange({ sValue: value });
-        this.$emit('afterChange', value);
+        this.__emit('afterChange', value);
         this.onEnd();
       }
     },
@@ -159,7 +148,7 @@ const Slider = {
         minimumTrackStyle,
         trackStyle,
         handleStyle,
-        tabIndex,
+        tabindex,
         min,
         max,
         reverse,
@@ -170,7 +159,7 @@ const Slider = {
       const { sValue, dragging } = this;
       const offset = this.calcOffset(sValue);
       const handles = handleGenerator({
-        className: `${prefixCls}-handle`,
+        class: `${prefixCls}-handle`,
         prefixCls,
         vertical,
         offset,
@@ -181,18 +170,11 @@ const Slider = {
         max,
         reverse,
         index: 0,
-        tabIndex,
+        tabindex,
         style: handleStyle[0] || handleStyle,
-        directives: [
-          {
-            name: 'ant-ref',
-            value: h => this.saveHandle(0, h),
-          },
-        ],
-        on: {
-          focus: this.onFocus,
-          blur: this.onBlur,
-        },
+        ref: h => this.saveHandle(0, h),
+        onFocus: this.onFocus,
+        onBlur: this.onBlur,
       });
 
       const _trackStyle = trackStyle[0] || trackStyle;

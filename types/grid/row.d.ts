@@ -2,7 +2,7 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
+import { AntdComponent, AntdProps } from '../component';
 
 type Gutter =
   | number
@@ -15,30 +15,32 @@ type Gutter =
       xxl: number;
     };
 export declare class Row extends AntdComponent {
-  /**
-   * spacing between grids, could be a number or a object like { xs: 8, sm: 16, md: 24}
-   * @default 0
-   * @type numner | object
-   */
-  gutter: Gutter | [Gutter, Gutter];
+  $props: AntdProps & {
+    /**
+     * spacing between grids, could be a number or a object like { xs: 8, sm: 16, md: 24}
+     * @default 0
+     * @type numner | object
+     */
+    gutter?: Gutter | [Gutter, Gutter];
 
-  /**
-   * layout mode, optional flex
-   * @type string
-   */
-  type: string;
+    /**
+     * layout mode, optional flex
+     * @type string
+     */
+    type?: string;
 
-  /**
-   * the vertical alignment of the flex layout: top middle bottom
-   * @default 'top'
-   * @type string
-   */
-  align: 'top' | 'middle' | 'bottom';
+    /**
+     * the vertical alignment of the flex layout: top middle bottom
+     * @default 'top'
+     * @type string
+     */
+    align?: 'top' | 'middle' | 'bottom';
 
-  /**
-   * horizontal arrangement of the flex layout: start end center space-around space-between
-   * @default 'start'
-   * @type string
-   */
-  justify: 'start' | 'end' | 'center' | 'space-around' | 'space-between';
+    /**
+     * horizontal arrangement of the flex layout: start end center space-around space-between
+     * @default 'start'
+     * @type string
+     */
+    justify?: 'start' | 'end' | 'center' | 'space-around' | 'space-between';
+  };
 }

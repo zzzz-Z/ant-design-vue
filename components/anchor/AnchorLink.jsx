@@ -1,7 +1,9 @@
+import { inject } from 'vue';
 import PropTypes from '../_util/vue-types';
-import { initDefaultProps, getComponentFromProp } from '../_util/props-util';
-import classNames from 'classnames';
+import { initDefaultProps, getComponent } from '../_util/props-util';
+import classNames from '../_util/classNames';
 import { ConfigConsumerProps } from '../config-provider';
+function noop() {}
 
 export const AnchorLinkProps = {
   prefixCls: PropTypes.string,
@@ -15,10 +17,17 @@ export default {
   props: initDefaultProps(AnchorLinkProps, {
     href: '#',
   }),
-  inject: {
-    antAnchor: { default: () => ({}) },
-    antAnchorContext: { default: () => ({}) },
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      antAnchor: inject('antAnchor', {
+        registerLink: noop,
+        unregisterLink: noop,
+        scrollTo: noop,
+        $data: {},
+      }),
+      antAnchorContext: inject('antAnchorContext', {}),
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   watch: {
     href(val, oldVal) {
@@ -33,7 +42,7 @@ export default {
     this.antAnchor.registerLink(this.href);
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.antAnchor.unregisterLink(this.href);
   },
   methods: {
@@ -53,7 +62,7 @@ export default {
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('anchor', customizePrefixCls);
 
-    const title = getComponentFromProp(this, 'title');
+    const title = getComponent(this, 'title');
     const active = this.antAnchor.$data.activeLink === href;
     const wrapperClassName = classNames(`${prefixCls}-link`, {
       [`${prefixCls}-link-active`]: active,
@@ -72,7 +81,7 @@ export default {
         >
           {title}
         </a>
-        {$slots.default}
+        {$slots.default && $slots.default()}
       </div>
     );
   },

@@ -1,8 +1,8 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/dist/plugin').default;
-const webpack = require('webpack');
 const WebpackBar = require('webpackbar');
 const path = require('path');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
   mode: 'development',
@@ -12,13 +12,20 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.vue$/,
+        test: /\.(vue|md)$/,
         loader: 'vue-loader',
+        exclude: /\.(en-US.md|zh-CN.md)$/,
+      },
+      {
+        test: /\.(en-US.md|zh-CN.md)$/,
+        use: [{ loader: 'vue-loader' }, { loader: './loader.js' }],
       },
       {
         test: /\.(js|jsx)$/,
         loader: 'babel-loader',
+        exclude: /pickr.*js/,
         options: {
+          cacheDirectory: true,
           presets: [
             [
               '@babel/preset-env',
@@ -37,7 +44,16 @@ module.exports = {
             ],
           ],
           plugins: [
-            ['@ant-design-vue/babel-plugin-jsx', { transformOn: true, compatibleProps: true }],
+            [
+              'babel-plugin-import',
+              {
+                libraryName: 'ant-design-vue',
+                libraryDirectory: '', // default: lib
+                style: true,
+              },
+            ],
+            ['@vue/babel-plugin-jsx'],
+            '@babel/plugin-proposal-optional-chaining',
             '@babel/plugin-transform-object-assign',
             '@babel/plugin-proposal-object-rest-spread',
             '@babel/plugin-proposal-export-default-from',
@@ -73,20 +89,27 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ['css-loader'],
+        use: [
+          {
+            loader: MiniCssExtractPlugin.loader,
+            options: {
+              hmr: true,
+            },
+          },
+          'css-loader',
+        ],
       },
     ],
   },
   resolve: {
     alias: {
+      'ant-design-vue/es': path.join(__dirname, './components'),
       'ant-design-vue': path.join(__dirname, './components'),
-      // vue$: 'vue/dist/vue.esm.js',
+      vue$: 'vue/dist/vue.esm-bundler.js',
     },
-    extensions: ['.js', '.jsx', '.vue'],
+    extensions: ['.js', '.jsx', '.vue', '.md'],
   },
   devServer: {
-    host: 'localhost',
-    port: 3002,
     historyApiFallback: {
       rewrites: [{ from: /./, to: '/index.html' }],
     },
@@ -94,9 +117,11 @@ module.exports = {
     hot: true,
     open: true,
   },
-  devtool: '#source-map',
+  devtool: 'cheap-module-eval-source-map',
   plugins: [
-    new webpack.HotModuleReplacementPlugin(),
+    new MiniCssExtractPlugin({
+      filename: '[name].css',
+    }),
     new HtmlWebpackPlugin({
       template: 'examples/index.html',
       filename: 'index.html',

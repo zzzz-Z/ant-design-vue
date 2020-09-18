@@ -2,9 +2,8 @@ import glob from 'glob';
 import { mount } from '@vue/test-utils';
 import MockDate from 'mockdate';
 import moment from 'moment';
-import Vue from 'vue';
+import { nextTick } from 'vue';
 import antd from 'ant-design-vue';
-Vue.use(antd);
 
 export default function demoTest(component, options = {}) {
   const suffix = options.suffix || 'md';
@@ -18,15 +17,17 @@ export default function demoTest(component, options = {}) {
     testMethod(`renders ${file} correctly`, done => {
       MockDate.set(moment('2016-11-22'));
       const demo = require(`../.${file}`).default || require(`../.${file}`);
-      const wrapper = mount(demo, { sync: false });
-      Vue.nextTick(() => {
+      document.body.innerHTML = '';
+      const wrapper = mount(demo, { global: { plugins: [antd] }, attachTo: document.body });
+      nextTick(() => {
         // should get dom from element
         // snap files copy from antd does not need to change
         // or just change a little
         const dom = options.getDomFromElement ? wrapper.element : wrapper.html();
         expect(dom).toMatchSnapshot();
         MockDate.reset();
-        wrapper.destroy();
+        // wrapper.unmount();
+        document.body.innerHTML = '';
         done();
       });
     });

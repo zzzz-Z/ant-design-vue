@@ -1,5 +1,5 @@
 import PropTypes from '../_util/vue-types';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import Lazyload from '../vc-lazy-load';
 import Checkbox from '../checkbox';
 
@@ -7,6 +7,7 @@ function noop() {}
 
 export default {
   name: 'ListItem',
+  inheritAttrs: false,
   props: {
     renderedText: PropTypes.any,
     renderedEl: PropTypes.any,
@@ -15,6 +16,7 @@ export default {
     checked: PropTypes.bool,
     prefixCls: PropTypes.string,
     disabled: PropTypes.bool,
+    onClick: PropTypes.func,
   },
   render() {
     const { renderedText, renderedEl, item, lazy, checked, disabled, prefixCls } = this.$props;
@@ -48,14 +50,11 @@ export default {
     let children = null;
     if (lazy) {
       const lazyProps = {
-        props: {
-          height: 32,
-          offset: 500,
-          throttle: 0,
-          debounce: false,
-          ...lazy,
-          _propsSymbol: Symbol(),
-        },
+        height: 32,
+        offset: 500,
+        throttle: 0,
+        debounce: false,
+        ...lazy,
       };
       children = <Lazyload {...lazyProps}>{listItem}</Lazyload>;
     } else {

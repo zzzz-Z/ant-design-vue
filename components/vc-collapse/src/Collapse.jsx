@@ -1,8 +1,15 @@
 import BaseMixin from '../../_util/BaseMixin';
-import { hasProp, getPropsData, isEmptyElement, initDefaultProps } from '../../_util/props-util';
+import {
+  hasProp,
+  getPropsData,
+  isEmptyElement,
+  initDefaultProps,
+  getSlot,
+} from '../../_util/props-util';
 import { cloneElement } from '../../_util/vnode';
 import openAnimationFactory from './openAnimationFactory';
 import { collapseProps } from './commonProps';
+import { getDataAndAriaProps } from '../../_util/util';
 
 function _toArray(activeKey) {
   let currentActiveKey = activeKey;
@@ -14,10 +21,7 @@ function _toArray(activeKey) {
 export default {
   name: 'Collapse',
   mixins: [BaseMixin],
-  model: {
-    prop: 'activeKey',
-    event: 'change',
-  },
+  inheritAttrs: false,
   props: initDefaultProps(collapseProps(), {
     prefixCls: 'rc-collapse',
     accordion: false,
@@ -84,48 +88,56 @@ export default {
       let panelEvents = {};
       if (!disabled && disabled !== '') {
         panelEvents = {
-          itemClick: this.onClickItem,
+          onItemClick: this.onClickItem,
         };
       }
 
       const props = {
         key,
-        props: {
-          panelKey: key,
-          header,
-          headerClass,
-          isActive,
-          prefixCls,
-          destroyInactivePanel,
-          openAnimation: this.currentOpenAnimations,
-          accordion,
-          expandIcon,
-        },
-        on: panelEvents,
+        panelKey: key,
+        header,
+        headerClass,
+        isActive,
+        prefixCls,
+        destroyInactivePanel,
+        openAnimation: this.currentOpenAnimations,
+        accordion,
+        expandIcon,
+        ...panelEvents,
       };
 
       return cloneElement(child, props);
     },
     getItems() {
       const newChildren = [];
-      this.$slots.default &&
-        this.$slots.default.forEach((child, index) => {
+      const children = getSlot(this);
+      children &&
+        children.forEach((child, index) => {
           newChildren.push(this.getNewChild(child, index));
         });
       return newChildren;
     },
     setActiveKey(activeKey) {
-      this.setState({ stateActiveKey: activeKey });
-      this.$emit('change', this.accordion ? activeKey[0] : activeKey);
+      if (!hasProp(this, 'activeKey')) {
+        this.setState({ stateActiveKey: activeKey });
+      }
+      this.__emit('change', this.accordion ? activeKey[0] : activeKey);
     },
   },
   render() {
     const { prefixCls, accordion } = this.$props;
+    const { class: className, style } = this.$attrs;
     const collapseClassName = {
       [prefixCls]: true,
+      [className]: className,
     };
     return (
-      <div class={collapseClassName} role={accordion ? 'tablist' : null}>
+      <div
+        class={collapseClassName}
+        {...getDataAndAriaProps(this.$attrs)}
+        style={style}
+        role={accordion ? 'tablist' : null}
+      >
         {this.getItems()}
       </div>
     );

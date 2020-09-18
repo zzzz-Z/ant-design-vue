@@ -1,15 +1,36 @@
 <template>
   <div>
-    <a-alert message="Warning text" banner />
-    <br />
-    <a-alert
-      message="Very long warning text warning text text text text text text text"
-      banner
-      closable
-    />
-    <br />
-    <a-alert :show-icon="false" message="Warning text without icon" banner />
-    <br />
-    <a-alert type="error" message="Error text" banner />
+    <demo />
   </div>
 </template>
+<script>
+import demo from '../antdv-demo/docs/form/demo';
+export default {
+  components: {
+    demo,
+  },
+  data() {
+    return {
+      visible: false,
+      pStyle: {
+        fontSize: '16px',
+        color: 'rgba(0,0,0,0.85)',
+        lineHeight: '24px',
+        display: 'block',
+        marginBottom: '16px',
+      },
+      pStyle2: {
+        marginBottom: '24px',
+      },
+    };
+  },
+  methods: {
+    showDrawer() {
+      this.visible = true;
+    },
+    onClose() {
+      this.visible = false;
+    },
+  },
+};
+</script>

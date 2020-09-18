@@ -16,16 +16,19 @@ export default {
         }
       }
       Object.assign(this.$data, newState);
-      this.$forceUpdate();
+      if (this._.isMounted) {
+        this.$forceUpdate();
+      }
       this.$nextTick(() => {
         callback && callback();
       });
     },
     __emit() {
-      // 直接调用listeners，底层组件不需要vueTool记录events
+      // 直接调用事件，底层组件不需要vueTool记录events
       const args = [].slice.call(arguments, 0);
-      const eventName = args[0];
-      const event = this.$listeners[eventName];
+      let eventName = args[0];
+      eventName = `on${eventName[0].toUpperCase()}${eventName.substring(1)}`;
+      const event = this.$props[eventName] || this.$attrs[eventName];
       if (args.length && event) {
         if (Array.isArray(event)) {
           for (let i = 0, l = event.length; i < l; i++) {

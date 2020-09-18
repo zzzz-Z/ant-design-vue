@@ -11,7 +11,7 @@ export const TreeData = PropTypes.shape({
 
 export const TreeSelectProps = () => ({
   ...AbstractSelectProps(),
-  autoFocus: PropTypes.bool,
+  autofocus: PropTypes.bool,
   dropdownStyle: PropTypes.object,
   filterTreeNode: PropTypes.oneOfType([Function, Boolean]),
   getPopupContainer: PropTypes.func,
@@ -33,9 +33,6 @@ export const TreeSelectProps = () => ({
   ]),
   multiple: PropTypes.bool,
   notFoundContent: PropTypes.any,
-  // onSelect: (value: any) => void,
-  // onChange: (value: any, label: any) => void,
-  // onSearch: (value: any) => void,
   searchPlaceholder: PropTypes.string,
   searchValue: PropTypes.string,
   showCheckedStrategy: PropTypes.oneOf(['SHOW_ALL', 'SHOW_PARENT', 'SHOW_CHILD']),
@@ -54,4 +51,14 @@ export const TreeSelectProps = () => ({
   treeNodeFilterProp: PropTypes.string,
   treeNodeLabelProp: PropTypes.string,
   replaceFields: PropTypes.object.def({}),
+  clearIcon: PropTypes.any,
+  removeIcon: PropTypes.any,
+
+  onSelect: PropTypes.func,
+  onChange: PropTypes.func,
+  onSearch: PropTypes.func,
+  onTreeExpand: PropTypes.func,
+  'onUpdate:treeExpandedKeys': PropTypes.func,
+  'onUpdate:searchValue': PropTypes.func,
+  'onUpdate:value': PropTypes.func,
 });

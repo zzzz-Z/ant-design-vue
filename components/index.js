@@ -29,8 +29,6 @@ import { default as BackTop } from './back-top';
 
 import { default as Badge } from './badge';
 
-import { default as Base } from './base';
-
 import { default as Breadcrumb } from './breadcrumb';
 
 import { default as Button } from './button';
@@ -56,7 +54,6 @@ import { default as Divider } from './divider';
 import { default as Dropdown } from './dropdown';
 
 import { default as Form } from './form';
-import { default as FormModel } from './form-model';
 
 import { default as Icon } from './icon';
 
@@ -136,6 +133,8 @@ import { default as Skeleton } from './skeleton';
 
 import { default as Comment } from './comment';
 
+// import { default as ColorPicker } from './color-picker';
+
 import { default as ConfigProvider } from './config-provider';
 
 import { default as Empty } from './empty';
@@ -144,9 +143,9 @@ import { default as Result } from './result';
 
 import { default as Descriptions } from './descriptions';
 import { default as PageHeader } from './page-header';
+import { default as Space } from './space';
 
 const components = [
-  Base,
   Affix,
   Anchor,
   AutoComplete,
@@ -167,7 +166,6 @@ const components = [
   Divider,
   Dropdown,
   Form,
-  FormModel,
   Icon,
   Input,
   InputNumber,
@@ -203,35 +201,33 @@ const components = [
   Drawer,
   Skeleton,
   Comment,
+  // ColorPicker,
   ConfigProvider,
   Empty,
   Result,
   Descriptions,
   PageHeader,
+  Space,
 ];
 
-const install = function(Vue) {
+const install = function(app) {
   components.map(component => {
-    Vue.use(component);
+    app.use(component);
   });
 
-  Vue.prototype.$message = message;
-  Vue.prototype.$notification = notification;
-  Vue.prototype.$info = Modal.info;
-  Vue.prototype.$success = Modal.success;
-  Vue.prototype.$error = Modal.error;
-  Vue.prototype.$warning = Modal.warning;
-  Vue.prototype.$confirm = Modal.confirm;
-  Vue.prototype.$destroyAll = Modal.destroyAll;
+  app.config.globalProperties.$message = message;
+  app.config.globalProperties.$notification = notification;
+  app.config.globalProperties.$info = Modal.info;
+  app.config.globalProperties.$success = Modal.success;
+  app.config.globalProperties.$error = Modal.error;
+  app.config.globalProperties.$warning = Modal.warning;
+  app.config.globalProperties.$confirm = Modal.confirm;
+  app.config.globalProperties.$destroyAll = Modal.destroyAll;
 };
 
 /* istanbul ignore if */
-if (typeof window !== 'undefined' && window.Vue) {
-  install(window.Vue);
-}
 
 export {
-  Base,
   version,
   install,
   message,
@@ -256,7 +252,6 @@ export {
   Divider,
   Dropdown,
   Form,
-  FormModel,
   Icon,
   Input,
   InputNumber,
@@ -292,11 +287,13 @@ export {
   Drawer,
   Skeleton,
   Comment,
+  // ColorPicker,
   ConfigProvider,
   Empty,
   Result,
   Descriptions,
   PageHeader,
+  Space,
 };
 
 export default {

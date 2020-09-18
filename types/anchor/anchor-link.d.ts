@@ -2,18 +2,27 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from '../component';
+import { VNodeChild } from 'vue';
+import { AntdComponent, AntdProps } from '../component';
 
 export declare class AnchorLink extends AntdComponent {
-  /**
-   * target of hyperlink
-   * @type string
-   */
-  href: string;
+  $props: AntdProps & {
+    /**
+     * target of hyperlink
+     * @type string
+     */
+    href?: string;
 
-  /**
-   * content of hyperlink
-   * @type any (string | slot)
-   */
-  title: any;
+    /**
+     * content of hyperlink
+     * @type any (string | slot)
+     */
+    title?: VNodeChild | JSX.Element;
+
+    /**
+     * Specifies where to display the linked URL
+     * @version 1.5.0
+     */
+    target?: string;
+  };
 }

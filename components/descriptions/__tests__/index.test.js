@@ -4,24 +4,6 @@ import Descriptions from '..';
 import { resetWarned } from '../../_util/warning';
 import { asyncExpect } from '@/tests/utils';
 
-jest.mock('enquire.js', () => {
-  let that;
-  let unmatchFun;
-  return {
-    unregister: jest.fn(),
-    register: (media, options) => {
-      if (media === '(max-width: 575px)') {
-        that = this;
-        options.match.call(that);
-        unmatchFun = options.unmatch;
-      }
-    },
-    callunmatch() {
-      unmatchFun.call(that);
-    },
-  };
-});
-
 describe('Descriptions', () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -48,12 +30,12 @@ describe('Descriptions', () => {
           );
         },
       },
-      { sync: false, attachToDocument: true },
+      { sync: false, attachTo: 'body' },
     );
     await asyncExpect(() => {
       expect(wrapper.vm.$refs.descriptions.getColumn()).toBe(8);
     }, 100);
-    wrapper.destroy();
+    wrapper.unmount();
   });
 
   it('column is number', () => {
@@ -61,7 +43,7 @@ describe('Descriptions', () => {
     const wrapper = mount({
       render() {
         return (
-          <Descriptions column="3">
+          <Descriptions column={3}>
             <Descriptions.Item label="Product">Cloud Database</Descriptions.Item>
             <Descriptions.Item label="Billing">Prepaid</Descriptions.Item>
             <Descriptions.Item label="time">18:00:00</Descriptions.Item>
@@ -71,7 +53,7 @@ describe('Descriptions', () => {
       },
     });
     expect(wrapper.html()).toMatchSnapshot();
-    wrapper.destroy();
+    wrapper.unmount();
   });
 
   it('warning if ecceed the row span', () => {
@@ -112,7 +94,7 @@ describe('Descriptions', () => {
       },
     });
     expect(wrapper.html()).toMatchSnapshot();
-    wrapper.destroy();
+    wrapper.unmount();
   });
 
   it('vertical layout', () => {
@@ -130,7 +112,7 @@ describe('Descriptions', () => {
       },
     });
     expect(wrapper.html()).toMatchSnapshot();
-    wrapper.destroy();
+    wrapper.unmount();
   });
 
   it('Descriptions.Item support className', () => {
@@ -176,7 +158,6 @@ describe('Descriptions', () => {
 
   it('when max-width: 575px，column=1', async () => {
     // eslint-disable-next-line global-require
-    const enquire = require('enquire.js');
     const wrapper = mount(
       {
         render() {
@@ -191,20 +172,17 @@ describe('Descriptions', () => {
           );
         },
       },
-      { sync: false, attachToDocument: true },
+      { sync: false, attachTo: 'body' },
     );
     await asyncExpect(() => {
       expect(wrapper.findAll('tr')).toHaveLength(5);
       expect(wrapper.findAll('.ant-descriptions-item-no-label')).toHaveLength(1);
     });
 
-    enquire.callunmatch();
-    wrapper.destroy();
+    wrapper.unmount();
   });
 
   it('when max-width: 575px，column=2', async () => {
-    // eslint-disable-next-line global-require
-    const enquire = require('enquire.js');
     const wrapper = mount(
       {
         render() {
@@ -218,17 +196,10 @@ describe('Descriptions', () => {
           );
         },
       },
-      { sync: false, attachToDocument: true },
+      { sync: false, attachTo: 'body' },
     );
     await asyncExpect(() => {});
     expect(wrapper.findAll('tr')).toHaveLength(2);
-
-    enquire.callunmatch();
-    wrapper.destroy();
-
-    await asyncExpect(() => {});
-    await asyncExpect(() => {});
-    await asyncExpect(() => {});
-    await asyncExpect(() => {});
+    wrapper.unmount();
   });
 });

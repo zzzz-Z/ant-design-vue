@@ -1,10 +1,11 @@
+import { inject, provide } from 'vue';
 import PropTypes from '../_util/vue-types';
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import addEventListener from '../vc-util/Dom/addEventListener';
 import Affix from '../affix';
 import scrollTo from '../_util/scrollTo';
 import getScroll from '../_util/getScroll';
-import { initDefaultProps } from '../_util/props-util';
+import { initDefaultProps, findDOMNode } from '../_util/props-util';
 import BaseMixin from '../_util/BaseMixin';
 import { ConfigConsumerProps } from '../config-provider';
 
@@ -87,6 +88,8 @@ export const AnchorProps = {
   wrapperStyle: PropTypes.object,
   getCurrentAnchor: PropTypes.func,
   targetOffset: PropTypes.number,
+  onChange: PropTypes.func,
+  onClick: PropTypes.func,
 };
 
 export default {
@@ -98,9 +101,6 @@ export default {
     showInkInFixed: false,
     getContainer: getDefaultContainer,
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
-  },
   data() {
     this.links = [];
     this._sPrefixCls = '';
@@ -108,27 +108,29 @@ export default {
       activeLink: null,
     };
   },
-  provide() {
-    return {
-      antAnchor: {
-        registerLink: link => {
-          if (!this.links.includes(link)) {
-            this.links.push(link);
-          }
-        },
-        unregisterLink: link => {
-          const index = this.links.indexOf(link);
-          if (index !== -1) {
-            this.links.splice(index, 1);
-          }
-        },
-        $data: this.$data,
-        scrollTo: this.handleScrollTo,
+  created() {
+    provide('antAnchor', {
+      registerLink: link => {
+        if (!this.links.includes(link)) {
+          this.links.push(link);
+        }
       },
-      antAnchorContext: this,
+      unregisterLink: link => {
+        const index = this.links.indexOf(link);
+        if (index !== -1) {
+          this.links.splice(index, 1);
+        }
+      },
+      $data: this.$data,
+      scrollTo: this.handleScrollTo,
+    });
+    provide('antAnchorContext', this);
+  },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
     };
   },
-
   mounted() {
     this.$nextTick(() => {
       const { getContainer } = this;
@@ -152,7 +154,7 @@ export default {
       this.updateInk();
     });
   },
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.scrollEvent) {
       this.scrollEvent.remove();
     }
@@ -251,7 +253,9 @@ export default {
         return;
       }
       const { _sPrefixCls } = this;
-      const linkNode = this.$el.getElementsByClassName(`${_sPrefixCls}-link-title-active`)[0];
+      const linkNode = findDOMNode(this).getElementsByClassName(
+        `${_sPrefixCls}-link-title-active`,
+      )[0];
       if (linkNode) {
         this.$refs.inkNode.style.top = `${linkNode.offsetTop + linkNode.clientHeight / 2 - 4.5}px`;
       }
@@ -268,7 +272,6 @@ export default {
       $slots,
       getContainer,
     } = this;
-
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('anchor', customizePrefixCls);
     this._sPrefixCls = prefixCls;
@@ -287,14 +290,13 @@ export default {
       maxHeight: offsetTop ? `calc(100vh - ${offsetTop}px)` : '100vh',
       ...this.wrapperStyle,
     };
-
     const anchorContent = (
       <div class={wrapperClass} style={wrapperStyle}>
         <div class={anchorClass}>
           <div class={`${prefixCls}-ink`}>
             <span class={inkClass} ref="inkNode" />
           </div>
-          {$slots.default}
+          {$slots.default && $slots.default()}
         </div>
       </div>
     );
@@ -302,7 +304,7 @@ export default {
     return !affix ? (
       anchorContent
     ) : (
-      <Affix offsetTop={offsetTop} target={getContainer}>
+      <Affix {...this.$attrs} offsetTop={offsetTop} target={getContainer}>
         {anchorContent}
       </Affix>
     );

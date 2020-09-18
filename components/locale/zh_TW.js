@@ -2,6 +2,7 @@ import Pagination from '../vc-pagination/locale/zh_TW';
 import DatePicker from '../date-picker/locale/zh_TW';
 import TimePicker from '../time-picker/locale/zh_TW';
 import Calendar from '../calendar/locale/zh_TW';
+import ColorPicker from '../color-picker/locale/zh_TW';
 
 export default {
   locale: 'zh-tw',
@@ -9,21 +10,25 @@ export default {
   DatePicker,
   TimePicker,
   Calendar,
+  ColorPicker,
   Table: {
     filterTitle: '篩選器',
-    filterConfirm: '確 定',
-    filterReset: '重 置',
+    filterConfirm: '確定',
+    filterReset: '重置',
     selectAll: '全部選取',
     selectInvert: '反向選取',
+    sortTitle: '排序',
+    expand: '展開行',
+    collapse: '關閉行',
   },
   Modal: {
-    okText: '確 定',
-    cancelText: '取 消',
-    justOkText: 'OK',
+    okText: '確定',
+    cancelText: '取消',
+    justOkText: '知道了',
   },
   Popconfirm: {
-    okText: '確 定',
-    cancelText: '取 消',
+    okText: '確定',
+    cancelText: '取消',
   },
   Transfer: {
     searchPlaceholder: '搜尋資料',

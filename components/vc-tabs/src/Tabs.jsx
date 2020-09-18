@@ -1,12 +1,12 @@
-import omit from 'omit.js';
+import { provide, reactive, watchEffect } from 'vue';
 import BaseMixin from '../../_util/BaseMixin';
 import PropTypes from '../../_util/vue-types';
 import raf from 'raf';
 import KeyCode from './KeyCode';
-import { getOptionProps, getListeners } from '../../_util/props-util';
 import { cloneElement } from '../../_util/vnode';
 import Sentinel from './Sentinel';
 import isValid from '../../_util/isValid';
+import { getDataAttr } from './utils';
 
 function getDefaultActiveKey(props) {
   let activeKey;
@@ -28,10 +28,7 @@ function activeKeyIsValid(props, key) {
 export default {
   name: 'Tabs',
   mixins: [BaseMixin],
-  model: {
-    prop: 'activeKey',
-    event: 'change',
-  },
+  inheritAttrs: false,
   props: {
     destroyInactiveTabPane: PropTypes.bool,
     renderTabBar: PropTypes.func.isRequired,
@@ -42,56 +39,51 @@ export default {
     tabBarPosition: PropTypes.string.def('top'),
     activeKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     defaultActiveKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    __propsSymbol__: PropTypes.any,
     direction: PropTypes.string.def('ltr'),
     tabBarGutter: PropTypes.number,
   },
-  data() {
-    const props = getOptionProps(this);
+  setup(props) {
     let activeKey;
-    if ('activeKey' in props) {
+    if (props.activeKey !== undefined) {
       activeKey = props.activeKey;
-    } else if ('defaultActiveKey' in props) {
+    } else if (props.defaultActiveKey !== undefined) {
       activeKey = props.defaultActiveKey;
     } else {
       activeKey = getDefaultActiveKey(props);
     }
-    return {
+    const state = reactive({
       _activeKey: activeKey,
-    };
+    });
+    watchEffect(
+      () => {
+        if (props.activeKey !== undefined) {
+          state._activeKey = props.activeKey;
+        } else if (!activeKeyIsValid(props, state._activeKey)) {
+          // https://github.com/ant-design/ant-design/issues/7093
+          state._activeKey = getDefaultActiveKey(props);
+        }
+      },
+      {
+        flush: 'sync',
+      },
+    );
+    return { state };
   },
-  provide() {
-    return {
-      sentinelContext: this,
-    };
+  created() {
+    this.panelSentinelStart = undefined;
+    this.panelSentinelEnd = undefined;
+    this.sentinelStart = undefined;
+    this.sentinelEnd = undefined;
+    provide('sentinelContext', this);
   },
-  watch: {
-    __propsSymbol__() {
-      const nextProps = getOptionProps(this);
-      if ('activeKey' in nextProps) {
-        this.setState({
-          _activeKey: nextProps.activeKey,
-        });
-      } else if (!activeKeyIsValid(nextProps, this.$data._activeKey)) {
-        // https://github.com/ant-design/ant-design/issues/7093
-        this.setState({
-          _activeKey: getDefaultActiveKey(nextProps),
-        });
-      }
-    },
-  },
-  beforeDestroy() {
+  beforeUnmount() {
     this.destroy = true;
     raf.cancel(this.sentinelId);
   },
   methods: {
     onTabClick(activeKey, e) {
-      if (
-        this.tabBar.componentOptions &&
-        this.tabBar.componentOptions.listeners &&
-        this.tabBar.componentOptions.listeners.tabClick
-      ) {
-        this.tabBar.componentOptions.listeners.tabClick(activeKey, e);
+      if (this.tabBar.props && this.tabBar.props.onTabClick) {
+        this.tabBar.props.onTabClick(activeKey, e);
       }
       this.setActiveKey(activeKey);
     },
@@ -139,19 +131,18 @@ export default {
     },
 
     setActiveKey(activeKey) {
-      if (this.$data._activeKey !== activeKey) {
-        const props = getOptionProps(this);
-        if (!('activeKey' in props)) {
-          this.setState({
-            _activeKey: activeKey,
-          });
+      if (this.state._activeKey !== activeKey) {
+        const props = this.$props;
+        if (props.activeKey === undefined) {
+          this.state._activeKey = activeKey;
         }
+        this.__emit('update:activeKey', activeKey);
         this.__emit('change', activeKey);
       }
     },
 
     getNextActiveKey(next) {
-      const activeKey = this.$data._activeKey;
+      const activeKey = this.state._activeKey;
       const children = [];
       this.$props.children.forEach(c => {
         if (c && !c.disabled && c.disabled !== '') {
@@ -197,7 +188,9 @@ export default {
       direction,
       tabBarGutter,
     } = props;
+    const { class: className, onChange, style, ...restProps } = this.$attrs;
     const cls = {
+      [className]: className,
       [prefixCls]: 1,
       [`${prefixCls}-${tabBarPosition}`]: 1,
       [`${prefixCls}-rtl`]: direction === 'rtl',
@@ -205,32 +198,24 @@ export default {
 
     this.tabBar = renderTabBar();
     const tabBar = cloneElement(this.tabBar, {
-      props: {
-        prefixCls,
-        navWrapper,
-        tabBarPosition,
-        panels: props.children,
-        activeKey: this.$data._activeKey,
-        direction,
-        tabBarGutter,
-      },
-      on: {
-        keydown: this.onNavKeyDown,
-        tabClick: this.onTabClick,
-      },
+      prefixCls,
+      navWrapper,
+      tabBarPosition,
+      panels: props.children,
+      activeKey: this.state._activeKey,
+      direction,
+      tabBarGutter,
+      onKeydown: this.onNavKeyDown,
+      onTabClick: this.onTabClick,
       key: 'tabBar',
     });
     const tabContent = cloneElement(renderTabContent(), {
-      props: {
-        prefixCls,
-        tabBarPosition,
-        activeKey: this.$data._activeKey,
-        destroyInactiveTabPane,
-        direction,
-      },
-      on: {
-        change: this.setActiveKey,
-      },
+      prefixCls,
+      tabBarPosition,
+      activeKey: this.state._activeKey,
+      destroyInactiveTabPane,
+      direction,
+      onChange: this.setActiveKey,
       children: props.children,
       key: 'tabContent',
     });
@@ -257,10 +242,12 @@ export default {
     } else {
       contents.push(tabBar, sentinelStart, tabContent, sentinelEnd);
     }
-    const listeners = {
-      ...omit(getListeners(this), ['change']),
-      scroll: this.onScroll,
+    const p = {
+      ...getDataAttr(restProps),
+      style,
+      onScroll: this.onScroll,
+      class: cls,
     };
-    return <div {...{ on: listeners, class: cls }}>{contents}</div>;
+    return <div {...p}>{contents}</div>;
   },
 };

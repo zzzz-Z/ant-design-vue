@@ -2,7 +2,11 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from './component';
+import { AntdComponent, AntdProps } from './component';
+
+export interface HttpRequestHeader {
+  [key: string]: string;
+}
 
 export interface VcFile extends File {
   uid: string;
@@ -30,7 +34,25 @@ export interface UploadFile<T = any> {
   preview?: string;
 }
 
-export interface ShowUploadList {
+export interface UploadChangeParam<T extends object = UploadFile> {
+  file: T;
+  fileList: UploadFile[];
+  event?: { percent: number };
+}
+
+export interface VcCustomRequestOptions {
+  onProgress: (event: { percent: number }, file: File) => void;
+  onError: (error: Error) => void;
+  onSuccess: (response: object, file: File) => void;
+  data: object;
+  filename: string;
+  file: File;
+  withCredentials: boolean;
+  action: string;
+  headers: object;
+}
+
+export interface ShowUploadListInterface {
   showRemoveIcon?: boolean;
   showPreviewIcon?: boolean;
   showDownloadIcon?: boolean;
@@ -55,132 +77,156 @@ type TransformFileHandler = (
 
 export declare class Upload extends AntdComponent {
   static Dragger: typeof Upload;
+  $props: AntdProps & {
+    /**
+     * File types that can be accepted.
+     * @type string
+     */
+    accept?: string;
 
-  /**
-   * File types that can be accepted.
-   * @type string
-   */
-  accept: string;
+    /**
+     * Uploading URL
+     * @type string | Function
+     */
+    action?: string | ((file: VcFile) => string) | ((file: VcFile) => PromiseLike<string>);
 
-  /**
-   * Uploading URL
-   * @type string | Function
-   */
-  action: string | Function;
+    /**
+     * support upload whole directory
+     * @type boolean
+     * @see https://caniuse.com/#feat=input-file-directory
+     */
+    directory?: boolean;
 
-  /**
-   * support upload whole directory
-   * @type boolean
-   * @see https://caniuse.com/#feat=input-file-directory
-   */
-  directory: boolean;
+    /**
+     * Hook function which will be executed before uploading.
+     * Uploading will be stopped with false or a rejected Promise returned.
+     * Warning：this function is not supported in IE9.
+     * @type Function
+     */
+    beforeUpload?: (file: VcFile, fileList: VcFile[]) => boolean | Promise<boolean>;
 
-  /**
-   * Hook function which will be executed before uploading.
-   * Uploading will be stopped with false or a rejected Promise returned.
-   * Warning：this function is not supported in IE9.
-   * @type Function
-   */
-  beforeUpload: (file: any, fileList: any) => boolean | Promise<boolean>;
+    /**
+     * A callback function, can be executed when uploading state is changing.
+     */
+    onChange?: (info: UploadChangeParam) => void;
 
-  /**
-   * override for the default xhr behavior allowing for additional customization and ability to implement your own XMLHttpRequest
-   * @type Function
-   */
-  customRequest: Function;
+    /**
+     * A callback function, will be executed when file link or preview icon is clicked.
+     */
+    onPreview?: (file: UploadFile) => void;
 
-  /**
-   * Uploading params or function which can return uploading params.
-   * @type object | Function
-   */
-  data: object | Function;
+    /**
+     * Click the method to download the file, pass the method to perform the method logic, do not pass the default jump to the new TAB.
+     */
+    onDownload?: (file: UploadFile) => void;
 
-  method?: 'POST' | 'PUT' | 'post' | 'put';
+    /**
+     * A callback function, will be executed when removing file button is clicked,
+     * remove event will be prevented when return value is false or a Promise which resolve(false) or reject.
+     * @type Function
+     */
+    onRemove?: (file: UploadFile) => boolean | Promise<boolean>;
 
-  /**
-   * Default list of files that have been uploaded.
-   * @type UploadFile[]
-   */
-  defaultFileList: UploadFile[];
+    /**
+     * override for the default xhr behavior allowing for additional customization and ability to implement your own XMLHttpRequest
+     * @type Function
+     */
+    customRequest?: (options: VcCustomRequestOptions) => void;
 
-  /**
-   * disable upload button
-   * @default false
-   * @type boolean
-   */
-  disabled: boolean;
+    /**
+     * Uploading params or function which can return uploading params.
+     * @type object | Function
+     */
+    data?: object | ((file: UploadFile) => object);
+    /**
+     * http method of upload request
+     */
+    method?: 'POST' | 'PUT' | 'post' | 'put';
 
-  /**
-   * List of files that have been uploaded (controlled)
-   * @type UploadFile[]
-   */
-  fileList: UploadFile[];
+    /**
+     * Default list of files that have been uploaded.
+     * @type UploadFile[]
+     */
+    defaultFileList?: UploadFile[];
 
-  /**
-   * Set request headers, valid above IE10.
-   * @type object
-   */
-  headers: object;
+    /**
+     * disable upload button
+     * @default false
+     * @type boolean
+     */
+    disabled?: boolean;
 
-  /**
-   * Built-in stylesheets, support for three types: text, picture or picture-card
-   * @default 'text'
-   * @type string
-   */
-  listType: 'text' | 'picture' | 'picture-card';
+    /**
+     * List of files that have been uploaded (controlled)
+     * @type UploadFile[]
+     */
+    fileList?: UploadFile[];
 
-  /**
-   * Whether to support selected multiple file. IE10+ supported.
-   *  You can select multiple files with CTRL holding down while multiple is set to be true
-   * @default false
-   * @type boolean
-   */
-  multiple: boolean;
+    /**
+     * Set request headers, valid above IE10.
+     * @type object
+     */
+    headers?: HttpRequestHeader;
 
-  /**
-   * The name of uploading file
-   * @default 'file'
-   * @type string
-   */
-  name: string;
+    /**
+     * Built-in stylesheets, support for three types: text, picture or picture-card
+     * @default 'text'
+     * @type string
+     */
+    listType?: 'text' | 'picture' | 'picture-card';
 
-  /**
-   * Whether to show default upload list, could be an object to specify showPreviewIcon and showRemoveIcon individually
-   * @default true
-   * @type boolean | ShowUploadList
-   */
-  showUploadList: boolean | ShowUploadList;
+    /**
+     * Whether to support selected multiple file. IE10+ supported.
+     *  You can select multiple files with CTRL holding down while multiple is set to be true
+     * @default false
+     * @type boolean
+     */
+    multiple?: boolean;
 
-  /**
-   * Need to be turned on while the server side is rendering.
-   * @default false
-   * @type boolean
-   */
-  supportServerRender: boolean;
+    /**
+     * The name of uploading file
+     * @default 'file'
+     * @type string
+     */
+    name?: string;
 
-  /**
-   * ajax upload with cookie sent
-   * @default false
-   * @type boolean
-   */
-  withCredentials: boolean;
+    /**
+     * Whether to show default upload list, could be an object to specify showPreviewIcon and showRemoveIcon individually
+     * @default true
+     * @type boolean | ShowUploadListInterface
+     */
+    showUploadList?: boolean | ShowUploadListInterface;
 
-  /**
-   * click open file dialog
-   * @default true
-   * @type boolean
-   */
-  openFileDialogOnClick: boolean;
+    /**
+     * Need to be turned on while the server side is rendering.
+     * @default false
+     * @type boolean
+     */
+    supportServerRender?: boolean;
 
-  /**
-   * A callback function, will be executed when removing file button is clicked,
-   * remove event will be prevented when return value is false or a Promise which resolve(false) or reject.
-   * @type Function
-   */
-  remove: (file: any) => boolean | Promise<boolean>;
+    /**
+     * ajax upload with cookie sent
+     * @default false
+     * @type boolean
+     */
+    withCredentials?: boolean;
 
-  locale?: UploadLocale;
-  id?: string;
-  previewFile?: PreviewFileHandler;
-  transformFile?: TransformFileHandler;
+    /**
+     * click open file dialog
+     * @default true
+     * @type boolean
+     */
+    openFileDialogOnClick?: boolean;
+
+    locale?: UploadLocale;
+    id?: string;
+    /**
+     * Customize preview file logic (1.5.0)
+     */
+    previewFile?: PreviewFileHandler;
+    /**
+     * Customize transform file before request (1.5.0)
+     */
+    transformFile?: TransformFileHandler;
+  };
 }

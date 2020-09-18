@@ -1,13 +1,13 @@
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
-import { getOptionProps, hasProp, getEvents, getStyle } from '../../_util/props-util';
+import { getOptionProps, hasProp, getEvents, findDOMNode } from '../../_util/props-util';
 import { cloneElement } from '../../_util/vnode';
 import createChainedFunction from '../../_util/createChainedFunction';
 import KeyCode from '../../_util/KeyCode';
 import placements from './picker/placements';
 import Trigger from '../../vc-trigger';
 import moment from 'moment';
-import isNil from 'lodash/isNil';
+import isNil from 'lodash-es/isNil';
 const TimeType = {
   validator(value) {
     if (Array.isArray(value)) {
@@ -19,16 +19,21 @@ const TimeType = {
     }
   },
 };
+
+function refFn(field, component) {
+  this[field] = component;
+}
+
 const Picker = {
   name: 'Picker',
+  inheritAttrs: false,
   props: {
     animation: PropTypes.oneOfType([PropTypes.func, PropTypes.string]),
     disabled: PropTypes.bool,
     transitionName: PropTypes.string,
-    format: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
+    format: PropTypes.oneOfType([PropTypes.string, PropTypes.array, PropTypes.func]),
     // onChange: PropTypes.func,
     // onOpenChange: PropTypes.func,
-    children: PropTypes.func,
     getCalendarContainer: PropTypes.func,
     calendar: PropTypes.any,
     open: PropTypes.bool,
@@ -40,11 +45,14 @@ const Picker = {
     align: PropTypes.object.def(() => ({})),
     dropdownClassName: PropTypes.string,
     dateRender: PropTypes.func,
+    children: PropTypes.func,
   },
   mixins: [BaseMixin],
 
   data() {
     const props = this.$props;
+    this.calendarElement = null;
+    this.saveCalendarRef = refFn.bind(this, 'calendarInstance');
     let open;
     if (hasProp(this, 'open')) {
       open = props.open;
@@ -80,7 +88,7 @@ const Picker = {
     this.preSOpen = this.sOpen;
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     clearTimeout(this.focusTimeout);
   },
   methods: {
@@ -140,18 +148,14 @@ const Picker = {
       const { sValue: value } = this;
       const defaultValue = value;
       const extraProps = {
-        ref: 'calendarInstance',
-        props: {
-          defaultValue: defaultValue || calendarProps.defaultValue,
-          selectedValue: value,
-        },
-        on: {
-          keydown: this.onCalendarKeyDown,
-          ok: createChainedFunction(calendarEvents.ok, this.onCalendarOk),
-          select: createChainedFunction(calendarEvents.select, this.onCalendarSelect),
-          clear: createChainedFunction(calendarEvents.clear, this.onCalendarClear),
-          blur: createChainedFunction(calendarEvents.blur, this.onCalendarBlur),
-        },
+        ref: this.saveCalendarRef,
+        defaultValue: defaultValue || calendarProps.defaultValue,
+        selectedValue: value,
+        onKeydown: this.onCalendarKeyDown,
+        onOk: createChainedFunction(calendarEvents.onOk, this.onCalendarOk),
+        onSelect: createChainedFunction(calendarEvents.onSelect, this.onCalendarSelect),
+        onClear: createChainedFunction(calendarEvents.onClear, this.onCalendarClear),
+        onBlur: createChainedFunction(calendarEvents.onBlur, this.onCalendarBlur),
       };
 
       return cloneElement(props.calendar, extraProps);
@@ -181,20 +185,19 @@ const Picker = {
 
     focus() {
       if (!this.sOpen) {
-        this.$el.focus();
+        findDOMNode(this).focus();
       }
     },
 
     focusCalendar() {
-      if (this.sOpen && this.calendarInstance && this.calendarInstance.componentInstance) {
-        this.calendarInstance.componentInstance.focus();
+      if (this.sOpen && !!this.calendarInstance) {
+        this.calendarInstance.focus();
       }
     },
   },
 
   render() {
     const props = getOptionProps(this);
-    const style = getStyle(this);
     const {
       prefixCls,
       placement,
@@ -206,13 +209,13 @@ const Picker = {
       transitionName,
     } = props;
     const { sValue, sOpen } = this;
-    const children = this.$scopedSlots.default;
     const childrenState = {
       value: sValue,
       open: sOpen,
     };
-    if (this.sOpen || !this.calendarInstance) {
-      this.calendarInstance = this.getCalendarElement();
+    const children = this.$slots.default(childrenState);
+    if (this.sOpen || !this.calendarElement) {
+      this.calendarElement = this.getCalendarElement();
     }
 
     return (
@@ -223,16 +226,16 @@ const Picker = {
         action={disabled && !sOpen ? [] : ['click']}
         destroyPopupOnHide
         getPopupContainer={getCalendarContainer}
-        popupStyle={style}
+        popupStyle={this.$attrs.style || {}}
         popupAnimation={animation}
         popupTransitionName={transitionName}
         popupVisible={sOpen}
         onPopupVisibleChange={this.onVisibleChange}
         prefixCls={prefixCls}
         popupClassName={dropdownClassName}
+        popup={this.calendarElement}
       >
-        <template slot="popup">{this.calendarInstance}</template>
-        {cloneElement(children(childrenState, props), { on: { keydown: this.onKeyDown } })}
+        {cloneElement(children, { onKeydown: this.onKeyDown })}
       </Trigger>
     );
   },

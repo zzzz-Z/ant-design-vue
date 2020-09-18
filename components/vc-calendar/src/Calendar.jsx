@@ -1,6 +1,6 @@
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
-import { getOptionProps, hasProp, getComponentFromProp } from '../../_util/props-util';
+import { getOptionProps, hasProp, getComponent, findDOMNode } from '../../_util/props-util';
 import { cloneElement } from '../../_util/vnode';
 import KeyCode from '../../_util/KeyCode';
 import moment from 'moment';
@@ -23,9 +23,14 @@ const getMomentObjectIfValid = date => {
 
 const Calendar = {
   name: 'Calendar',
+  inheritAttrs: false,
   props: {
     locale: PropTypes.object.def(enUs),
-    format: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
+    format: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.arrayOf(PropTypes.string),
+      PropTypes.func,
+    ]),
     visible: PropTypes.bool.def(true),
     prefixCls: PropTypes.string.def('rc-calendar'),
     // prefixCls: PropTypes.string,
@@ -56,6 +61,8 @@ const Calendar = {
     focusablePanel: PropTypes.bool.def(true),
     inputMode: PropTypes.string,
     inputReadOnly: PropTypes.bool,
+    monthCellRender: PropTypes.func,
+    monthCellContentRender: PropTypes.func,
   },
 
   mixins: [BaseMixin, CommonMixin, CalendarMixin],
@@ -220,12 +227,12 @@ const Calendar = {
           return;
         }
 
-        this.$emit('blur', event);
+        this.__emit('blur', event);
       }, 0);
     },
 
     getRootDOMNode() {
-      return this.$el;
+      return findDOMNode(this);
     },
     openTimePicker() {
       this.onPanelChange(null, 'time');
@@ -257,7 +264,7 @@ const Calendar = {
       monthCellContentRender,
       $props: props,
     } = this;
-    const clearIcon = getComponentFromProp(this, 'clearIcon');
+    const clearIcon = getComponent(this, 'clearIcon');
     const showTimePicker = sMode === 'time';
     const disabledTimeConfig =
       showTimePicker && disabledTime && timePicker
@@ -269,22 +276,18 @@ const Calendar = {
     if (timePicker && showTimePicker) {
       const timePickerOriginProps = getOptionProps(timePicker);
       const timePickerProps = {
-        props: {
-          showHour: true,
-          showSecond: true,
-          showMinute: true,
-          ...timePickerOriginProps,
-          ...disabledTimeConfig,
-          value: sSelectedValue,
-          disabledTime,
-        },
-        on: {
-          change: this.onDateInputChange,
-        },
+        showHour: true,
+        showSecond: true,
+        showMinute: true,
+        ...timePickerOriginProps,
+        ...disabledTimeConfig,
+        value: sSelectedValue,
+        disabledTime,
+        onChange: this.onDateInputChange,
       };
 
       if (timePickerOriginProps.defaultValue !== undefined) {
-        timePickerProps.props.defaultOpenValue = timePickerOriginProps.defaultValue;
+        timePickerProps.defaultOpenValue = timePickerOriginProps.defaultValue;
       }
       timePickerEle = cloneElement(timePicker, timePickerProps);
     }
@@ -316,7 +319,7 @@ const Calendar = {
     children.push(
       <div class={`${prefixCls}-panel`} key="panel">
         {dateInputElement}
-        <div tabIndex={props.focusablePanel ? 0 : undefined} class={`${prefixCls}-date-panel`}>
+        <div tabindex={props.focusablePanel ? 0 : undefined} class={`${prefixCls}-date-panel`}>
           <CalendarHeader
             locale={locale}
             mode={sMode}

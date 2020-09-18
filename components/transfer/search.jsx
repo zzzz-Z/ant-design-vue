@@ -10,10 +10,12 @@ export const TransferSearchProps = {
   value: PropTypes.any,
   handleClear: PropTypes.func,
   disabled: PropTypes.bool,
+  onChange: PropTypes.func,
 };
 
 export default {
   name: 'Search',
+  inheritAttrs: false,
   props: initDefaultProps(TransferSearchProps, {
     placeholder: '',
   }),

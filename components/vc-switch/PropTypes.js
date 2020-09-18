@@ -8,9 +8,9 @@ export const switchPropTypes = {
   // onChange: PropTypes.func,
   // onMouseUp: PropTypes.func,
   // onClick: PropTypes.func,
-  tabIndex: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  checked: PropTypes.bool.def(false),
+  tabindex: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  checked: PropTypes.bool,
   defaultChecked: PropTypes.bool.def(false),
-  autoFocus: PropTypes.bool.def(false),
+  autofocus: PropTypes.bool.def(false),
   loadingIcon: PropTypes.any,
 };

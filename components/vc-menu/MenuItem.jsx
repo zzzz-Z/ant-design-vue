@@ -4,7 +4,8 @@ import BaseMixin from '../_util/BaseMixin';
 import scrollIntoView from 'dom-scroll-into-view';
 import { connect } from '../_util/store';
 import { noop, menuAllProps } from './util';
-import { getComponentFromProp, getListeners } from '../_util/props-util';
+import { getComponent, getSlot, findDOMNode } from '../_util/props-util';
+import { inject } from 'vue';
 
 const props = {
   attribute: PropTypes.object,
@@ -17,14 +18,7 @@ const props = {
   index: PropTypes.number,
   inlineIndent: PropTypes.number.def(24),
   level: PropTypes.number.def(1),
-  mode: PropTypes.oneOf([
-    'horizontal',
-    'vertical',
-    'vertical-left',
-    'vertical-right',
-    'inline',
-  ]).def('vertical'),
-  parentMenu: PropTypes.object,
+  mode: PropTypes.oneOf(['horizontal', 'vertical', 'vertical-left', 'vertical-right', 'inline']),
   multiple: PropTypes.bool,
   value: PropTypes.any,
   isSelected: PropTypes.bool,
@@ -35,10 +29,14 @@ const props = {
   // clearSubMenuTimers: PropTypes.func.def(noop),
 };
 const MenuItem = {
-  name: 'MenuItem',
+  name: 'AMenuItem',
+  inheritAttrs: false,
   props,
   mixins: [BaseMixin],
   isMenuItem: true,
+  setup() {
+    return { parentMenu: inject('parentMenu', undefined) };
+  },
   created() {
     this.prevActive = this.active;
     // invoke customized ref to expose component to mixin
@@ -46,9 +44,9 @@ const MenuItem = {
   },
   updated() {
     this.$nextTick(() => {
-      const { active, parentMenu, eventKey } = this.$props;
+      const { active, parentMenu, eventKey } = this;
       if (!this.prevActive && active && (!parentMenu || !parentMenu[`scrolled-${eventKey}`])) {
-        scrollIntoView(this.$el, this.parentMenu.$el, {
+        scrollIntoView(findDOMNode(this.node), findDOMNode(parentMenu), {
           onlyScrollIfNeeded: true,
         });
         parentMenu[`scrolled-${eventKey}`] = true;
@@ -59,7 +57,7 @@ const MenuItem = {
     });
     this.callRef();
   },
-  beforeDestroy() {
+  beforeUnmount() {
     const props = this.$props;
     this.__emit('destroy', props.eventKey);
   },
@@ -132,7 +130,9 @@ const MenuItem = {
     getDisabledClassName() {
       return `${this.getPrefixCls()}-disabled`;
     },
-
+    saveNode(node) {
+      this.node = node;
+    },
     callRef() {
       if (this.manualRef) {
         this.manualRef(this);
@@ -141,8 +141,10 @@ const MenuItem = {
   },
 
   render() {
-    const props = { ...this.$props };
+    const { class: cls, style, ...props } = { ...this.$props, ...this.$attrs };
+
     const className = {
+      [cls]: !!cls,
       [this.getPrefixCls()]: true,
       [this.getActiveClassName()]: !props.disabled && props.active,
       [this.getSelectedClassName()]: props.isSelected,
@@ -171,32 +173,27 @@ const MenuItem = {
     }
     // In case that onClick/onMouseLeave/onMouseEnter is passed down from owner
     const mouseEvent = {
-      click: props.disabled ? noop : this.onClick,
-      mouseleave: props.disabled ? noop : this.onMouseLeave,
-      mouseenter: props.disabled ? noop : this.onMouseEnter,
+      onClick: props.disabled ? noop : this.onClick,
+      onMouseleave: props.disabled ? noop : this.onMouseLeave,
+      onMouseenter: props.disabled ? noop : this.onMouseEnter,
     };
 
-    const style = {};
+    const styles = { ...(style || {}) };
     if (props.mode === 'inline') {
-      style.paddingLeft = `${props.inlineIndent * props.level}px`;
+      styles.paddingLeft = `${props.inlineIndent * props.level}px`;
     }
-    const listeners = { ...getListeners(this) };
-    menuAllProps.props.forEach(key => delete props[key]);
-    menuAllProps.on.forEach(key => delete listeners[key]);
+    menuAllProps.forEach(key => delete props[key]);
     const liProps = {
-      attrs: {
-        ...props,
-        ...attrs,
-      },
-      on: {
-        ...listeners,
-        ...mouseEvent,
-      },
+      ...props,
+      ...attrs,
+      ...mouseEvent,
+      ref: this.saveNode,
     };
+    delete liProps.children;
     return (
-      <li {...liProps} style={style} class={className}>
-        {this.$slots.default}
-        {getComponentFromProp(this, 'itemIcon', props)}
+      <li {...liProps} style={styles} class={className}>
+        {getSlot(this)}
+        {getComponent(this, 'itemIcon', props)}
       </li>
     );
   },

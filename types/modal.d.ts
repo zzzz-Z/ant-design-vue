@@ -2,10 +2,9 @@
 // Definitions by: akki-jat <https://github.com/akki-jat>
 // Definitions: https://github.com/vueComponent/ant-design-vue/types
 
-import { AntdComponent } from './component';
-import { VNode } from 'vue';
-import { TreeNode } from './tree-node';
-import { Button } from './button/button';
+import { AntdComponent, AntdProps } from './component';
+import { CSSProperties, VNodeChild } from 'vue';
+import { ButtonProps } from './button/button';
 
 export interface ModalOptions {
   /**
@@ -39,10 +38,15 @@ export interface ModalOptions {
    * Modal content
    * @type string | VNode | (h) => VNode
    */
-  content?: any;
-
-  icon?: VNode | Function;
-
+  content?: VNodeChild | JSX.Element;
+  /**
+   * custom icon (Added in 1.14.0)
+   */
+  icon?: VNodeChild | JSX.Element | Function;
+  /**
+   * Whether show mask or not.
+   * @default true
+   */
   mask?: boolean;
 
   /**
@@ -77,19 +81,19 @@ export interface ModalOptions {
    * The ok button props
    * @type object
    */
-  okButtonProps?: Button;
+  okButtonProps?: ButtonProps;
 
   /**
    * The cancel button props
    * @type object
    */
-  cancelButtonProps?: Button;
+  cancelButtonProps?: ButtonProps;
 
   /**
    * Title
    * @type string | VNode | (h) => VNode
    */
-  title?: any;
+  title?: VNodeChild | JSX.Element;
 
   /**
    * Width of the modal dialog
@@ -104,8 +108,13 @@ export interface ModalOptions {
    * @type number
    */
   zIndex?: number;
-
-  dialogStyle?: object;
+  /**
+   * Style of floating layer, typically used at least for adjusting the position.
+   */
+  dialogStyle?: CSSProperties;
+  /**
+   * className of floating layer.
+   */
   dialogClass?: string;
 
   /**
@@ -123,8 +132,6 @@ export interface ModalOptions {
    * @type Function
    */
   onOk?: () => any;
-
-  parentContext?: object;
 }
 
 export interface ModalConfirm {
@@ -141,164 +148,157 @@ export interface ModalConfirm {
 }
 
 export declare class Modal extends AntdComponent {
-  /**
-   * Specify a function that will be called when modal is closed completely.
-   * @type Function
-   */
-  afterClose: () => any;
+  $props: AntdProps & {
+    /**
+     * Specify a function that will be called when modal is closed completely.
+     * @type Function
+     */
+    afterClose?: () => any;
 
-  /**
-   * Body style for modal body element. Such as height, padding etc.
-   * @default {}
-   * @type object
-   */
-  bodyStyle: object;
+    /**
+     * Body style for modal body element. Such as height, padding etc.
+     * @default {}
+     * @type object
+     */
+    bodyStyle?: CSSProperties;
 
-  /**
-   * Text of the Cancel button
-   * @default 'cancel'
-   * @type string
-   */
-  cancelText: string;
+    /**
+     * Text of the Cancel button
+     * @default 'cancel'
+     * @type string
+     */
+    cancelText?: string;
 
-  /**
-   * Centered Modal
-   * @default false
-   * @type boolean
-   */
-  centered: boolean;
+    /**
+     * Centered Modal
+     * @default false
+     * @type boolean
+     */
+    centered?: boolean;
 
-  /**
-   * Whether a close (x) button is visible on top right of the modal dialog or not
-   * @default true
-   * @type boolean
-   */
-  closable: boolean;
+    /**
+     * Whether a close (x) button is visible on top right of the modal dialog or not
+     * @default true
+     * @type boolean
+     */
+    closable?: boolean;
+    /**
+     * Whether a close (x) button is visible on top right of the modal dialog or not
+     */
+    closeIcon?: VNodeChild | JSX.Element;
 
-  closeIcon: any;
+    /**
+     * Whether to apply loading visual effect for OK button or not
+     * @default false
+     * @type boolean
+     */
+    confirmLoading?: boolean;
 
-  /**
-   * Whether to apply loading visual effect for OK button or not
-   * @default false
-   * @type boolean
-   */
-  confirmLoading: boolean;
+    /**
+     * Whether to unmount child components on onClose
+     * @default false
+     * @type boolean
+     */
+    destroyOnClose?: boolean;
 
-  /**
-   * Whether to unmount child components on onClose
-   * @default false
-   * @type boolean
-   */
-  destroyOnClose: boolean;
+    /**
+     * Footer content, set as :footer="null" when you don't need default buttons
+     * @default OK and Cancel buttons
+     * @type any (string | slot)
+     */
+    footer?: VNodeChild | JSX.Element;
 
-  /**
-   * Footer content, set as :footer="null" when you don't need default buttons
-   * @default OK and Cancel buttons
-   * @type any (string | slot)
-   */
-  footer: any;
+    /**
+     * Return the mount node for Modal
+     * @default () => document.body
+     * @type Function
+     */
+    getContainer?: (instance: any) => HTMLElement;
 
-  /**
-   * Return the mount node for Modal
-   * @default () => document.body
-   * @type Function
-   */
-  getContainer: (instance: any) => HTMLElement;
+    /**
+     * Whether show mask or not.
+     * @default true
+     * @type boolean
+     */
+    mask?: boolean;
 
-  /**
-   * Whether show mask or not.
-   * @default true
-   * @type boolean
-   */
-  mask: boolean;
+    /**
+     * Whether to close the modal dialog when the mask (area outside the modal) is clicked
+     * @default true
+     * @type boolean
+     */
+    maskClosable?: boolean;
 
-  /**
-   * Whether to close the modal dialog when the mask (area outside the modal) is clicked
-   * @default true
-   * @type boolean
-   */
-  maskClosable: boolean;
+    /**
+     * Style for modal's mask element.
+     * @default {}
+     * @type object
+     */
+    maskStyle?: CSSProperties;
 
-  /**
-   * Style for modal's mask element.
-   * @default {}
-   * @type object
-   */
-  maskStyle: object;
+    /**
+     * Text of the OK button
+     * @default 'OK'
+     * @type string
+     */
+    okText?: string;
 
-  /**
-   * Text of the OK button
-   * @default 'OK'
-   * @type string
-   */
-  okText: string;
+    /**
+     * Button type of the OK button
+     * @default 'primary'
+     * @type string
+     */
+    okType?: 'primary' | 'danger' | 'dashed' | 'ghost' | 'default';
 
-  /**
-   * Button type of the OK button
-   * @default 'primary'
-   * @type string
-   */
-  okType: 'primary' | 'danger' | 'dashed' | 'ghost' | 'default';
+    /**
+     * The ok button props, follow jsx rules
+     * @type object
+     */
+    okButtonProps?: ButtonProps;
 
-  /**
-   * The ok button props, follow jsx rules
-   * @type object
-   */
-  okButtonProps: { props: Button; on: {} };
+    /**
+     * The cancel button props, follow jsx rules
+     * @type object
+     */
+    cancelButtonProps?: ButtonProps;
 
-  /**
-   * The cancel button props, follow jsx rules
-   * @type object
-   */
-  cancelButtonProps: { props: Button; on: {} };
+    /**
+     * The modal dialog's title
+     * @type any (string | slot)
+     */
+    title?: VNodeChild | JSX.Element;
 
-  /**
-   * The modal dialog's title
-   * @type any (string | slot)
-   */
-  title: any;
+    /**
+     * Whether the modal dialog is visible or not
+     * @default false
+     * @type boolean
+     */
+    visible?: boolean;
 
-  /**
-   * Whether the modal dialog is visible or not
-   * @default false
-   * @type boolean
-   */
-  visible: boolean;
+    /**
+     * Width of the modal dialog
+     * @default 520
+     * @type string | number
+     */
+    width?: string | number;
 
-  /**
-   * Width of the modal dialog
-   * @default 520
-   * @type string | number
-   */
-  width: string | number;
+    /**
+     * The class name of the container of the modal dialog
+     * @type string
+     */
+    wrapClassName?: string;
 
-  /**
-   * The class name of the container of the modal dialog
-   * @type string
-   */
-  wrapClassName: string;
-
-  /**
-   * The z-index of the Modal
-   * @default 1000
-   * @type number
-   */
-  zIndex: number;
-
+    /**
+     * The z-index of the Modal
+     * @default 1000
+     * @type number
+     */
+    zIndex?: number;
+  };
   static info(options: ModalOptions): ModalConfirm;
   static success(options: ModalOptions): ModalConfirm;
   static error(options: ModalOptions): ModalConfirm;
   static warning(options: ModalOptions): ModalConfirm;
   static confirm(options: ModalOptions): ModalConfirm;
   static destroyAll(): void;
-}
-
-declare module 'vue/types/vue' {
-  interface Vue {
-    $info: (modalOptios: ModalOptions) => ModalConfirm;
-    $success: (modalOptios: ModalOptions) => ModalConfirm;
-    $error: (modalOptios: ModalOptions) => ModalConfirm;
-    $warning: (modalOptios: ModalOptions) => ModalConfirm;
-    $confirm: (modalOptios: ModalOptions) => ModalConfirm;
-  }
 }

@@ -1,12 +1,10 @@
 // based on rc-input-number 4.5.5
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
-import { initDefaultProps, hasProp, getOptionProps, getListeners } from '../../_util/props-util';
-import classNames from 'classnames';
+import { initDefaultProps, hasProp, getOptionProps } from '../../_util/props-util';
+import classNames from '../../_util/classNames';
 import KeyCode from '../../_util/KeyCode';
 import InputHandler from './InputHandler';
-
-function noop() {}
 
 function preventDefault(e) {
   e.preventDefault();
@@ -45,17 +43,17 @@ const inputNumberProps = {
   value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   defaultValue: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   focusOnUpDown: PropTypes.bool,
-  autoFocus: PropTypes.bool,
+  autofocus: PropTypes.bool,
   // onChange: PropTypes.func,
   // onKeyDown: PropTypes.func,
   // onKeyUp: PropTypes.func,
   prefixCls: PropTypes.string,
-  tabIndex: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  tabindex: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   placeholder: PropTypes.string,
   disabled: PropTypes.bool,
   // onFocus: PropTypes.func,
   // onBlur: PropTypes.func,
-  readOnly: PropTypes.bool,
+  readonly: PropTypes.bool,
   max: PropTypes.number,
   min: PropTypes.number,
   step: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
@@ -72,19 +70,22 @@ const inputNumberProps = {
   required: PropTypes.bool,
   pattern: PropTypes.string,
   decimalSeparator: PropTypes.string,
-  autoComplete: PropTypes.string,
+  autocomplete: PropTypes.string,
   title: PropTypes.string,
   name: PropTypes.string,
   id: PropTypes.string,
+  type: PropTypes.string,
+  maxlength: PropTypes.any,
 };
 
 export default {
   name: 'VCInputNumber',
   mixins: [BaseMixin],
-  model: {
-    prop: 'value',
-    event: 'change',
-  },
+  inheritAttrs: false,
+  // model: {
+  //   prop: 'value',
+  //   event: 'change',
+  // },
   props: initDefaultProps(inputNumberProps, {
     focusOnUpDown: true,
     useTouch: false,
@@ -93,7 +94,7 @@ export default {
     step: 1,
     parser: defaultParser,
     required: false,
-    autoComplete: 'off',
+    autocomplete: 'off',
   }),
   data() {
     const props = getOptionProps(this);
@@ -108,14 +109,11 @@ export default {
     return {
       inputValue: this.toPrecisionAsStep(validValue),
       sValue: validValue,
-      focused: this.autoFocus,
+      focused: this.autofocus,
     };
   },
   mounted() {
     this.$nextTick(() => {
-      if (this.autoFocus && !this.disabled) {
-        this.focus();
-      }
       this.updatedFunc();
     });
   },
@@ -158,7 +156,8 @@ export default {
         typeof nextValue === 'number' &&
         nextValue > max
       ) {
-        this.$emit('change', max);
+        this.__emit('update:value', max);
+        this.__emit('change', max);
       }
       if (
         'min' in props &&
@@ -166,7 +165,8 @@ export default {
         typeof nextValue === 'number' &&
         nextValue < min
       ) {
-        this.$emit('change', min);
+        this.__emit('update:value', min);
+        this.__emit('change', min);
       }
     }
     this.prevProps = { ...props };
@@ -174,12 +174,12 @@ export default {
       this.updatedFunc();
     });
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.stop();
   },
   methods: {
     updatedFunc() {
-      const inputElem = this.$refs.inputRef;
+      const inputElem = this.inputRef;
       // Restore cursor
       try {
         // Firefox set the input cursor after it get focused.
@@ -250,19 +250,19 @@ export default {
         this.down(e, ratio);
         this.stop();
       } else if (e.keyCode === KeyCode.ENTER) {
-        this.$emit('pressEnter', e);
+        this.__emit('pressEnter', e);
       }
       // Trigger user key down
       this.recordCursorPosition();
       this.lastKeyCode = e.keyCode;
-      this.$emit('keydown', e, ...args);
+      this.__emit('keydown', e, ...args);
     },
     onKeyUp(e, ...args) {
       this.stop();
 
       this.recordCursorPosition();
 
-      this.$emit('keyup', e, ...args);
+      this.__emit('keyup', e, ...args);
     },
     onChange(e) {
       if (this.focused) {
@@ -270,13 +270,15 @@ export default {
       }
       this.rawInput = this.parser(this.getValueFromEvent(e));
       this.setState({ inputValue: this.rawInput });
-      this.$emit('change', this.toNumber(this.rawInput)); // valid number or invalid string
+      const num = this.toNumber(this.rawInput); // valid number or invalid string
+      this.__emit('update:value', num);
+      this.__emit('change', num);
     },
     onFocus(...args) {
       this.setState({
         focused: true,
       });
-      this.$emit('focus', ...args);
+      this.__emit('focus', ...args);
     },
     onBlur(...args) {
       this.inputting = false;
@@ -285,12 +287,12 @@ export default {
       });
       const value = this.getCurrentValidValue(this.inputValue);
       const newValue = this.setValue(value);
-      if (this.$listeners.blur) {
-        const originValue = this.$refs.inputRef.value;
+      if (this.$attrs.onBlur) {
+        const originValue = this.inputRef.value;
         const inputValue = this.getInputDisplayValue({ focused: false, sValue: newValue });
-        this.$refs.inputRef.value = inputValue;
-        this.$emit('blur', ...args);
-        this.$refs.inputRef.value = originValue;
+        this.inputRef.value = inputValue;
+        this.__emit('blur', ...args);
+        this.inputRef.value = originValue;
       }
     },
     getCurrentValidValue(value) {
@@ -366,7 +368,8 @@ export default {
         );
       }
       if (changed) {
-        this.$emit('change', newValue);
+        this.__emit('update:value', newValue);
+        this.__emit('change', newValue);
       }
       return newValue;
     },
@@ -431,7 +434,7 @@ export default {
     recordCursorPosition() {
       // Record position
       try {
-        const inputElem = this.$refs.inputRef;
+        const inputElem = this.inputRef;
         this.cursorStart = inputElem.selectionStart;
         this.cursorEnd = inputElem.selectionEnd;
         this.currentValue = inputElem.value;
@@ -444,17 +447,12 @@ export default {
       }
     },
     fixCaret(start, end) {
-      if (
-        start === undefined ||
-        end === undefined ||
-        !this.$refs.inputRef ||
-        !this.$refs.inputRef.value
-      ) {
+      if (start === undefined || end === undefined || !this.inputRef || !this.inputRef.value) {
         return;
       }
 
       try {
-        const inputElem = this.$refs.inputRef;
+        const inputElem = this.inputRef;
         const currentStart = inputElem.selectionStart;
         const currentEnd = inputElem.selectionEnd;
 
@@ -470,7 +468,7 @@ export default {
     restoreByAfter(str) {
       if (str === undefined) return false;
 
-      const fullStr = this.$refs.inputRef.value;
+      const fullStr = this.inputRef.value;
       const index = fullStr.lastIndexOf(str);
 
       if (index === -1) return false;
@@ -504,11 +502,11 @@ export default {
       });
     },
     focus() {
-      this.$refs.inputRef.focus();
+      this.inputRef.focus();
       this.recordCursorPosition();
     },
     blur() {
-      this.$refs.inputRef.blur();
+      this.inputRef.blur();
     },
     formatWrapper(num) {
       // http://2ality.com/2012/03/signedzero.html
@@ -538,8 +536,8 @@ export default {
       );
     },
     toNumber(num) {
-      const { precision, autoFocus } = this.$props;
-      const { focused = autoFocus } = this;
+      const { precision, autofocus } = this.$props;
+      const { focused = autofocus } = this;
       // num.length > 16 => This is to prevent input of large numbers
       const numberIsTooLarge = num && num.length > 16 && focused;
       if (this.isNotCompleteNumber(num) || numberIsTooLarge) {
@@ -619,20 +617,34 @@ export default {
       this.stepFn('up', e, ratio, recursive);
     },
     handleInputClick() {
-      this.$emit('click');
+      this.__emit('click');
+    },
+    saveUp(node) {
+      this.upHandlerRef = node;
+    },
+
+    saveDown(node) {
+      this.downHandlerRef = node;
+    },
+
+    saveInput(node) {
+      this.inputRef = node;
     },
   },
   render() {
+    const props = { ...this.$props, ...this.$attrs };
     const {
       prefixCls,
       disabled,
-      readOnly,
+      readonly,
       useTouch,
-      autoComplete,
+      autocomplete,
       upHandler,
       downHandler,
-    } = this.$props;
+      class: className,
+    } = props;
     const classes = classNames({
+      [className]: className,
       [prefixCls]: true,
       [`${prefixCls}-disabled`]: disabled,
       [`${prefixCls}-focused`]: this.focused,
@@ -655,7 +667,17 @@ export default {
       }
     }
 
-    const editable = !this.readOnly && !this.disabled;
+    const dataOrAriaAttributeProps = {};
+    for (const key in props) {
+      if (
+        props.hasOwnProperty(key) &&
+        (key.substr(0, 5) === 'data-' || key.substr(0, 5) === 'aria-' || key === 'role')
+      ) {
+        dataOrAriaAttributeProps[key] = props[key];
+      }
+    }
+
+    const editable = !this.readonly && !this.disabled;
 
     // focus state, show input value
     // unfocus state, show valid value
@@ -665,82 +687,73 @@ export default {
     let downEvents;
     if (useTouch) {
       upEvents = {
-        touchstart: editable && !upDisabledClass ? this.up : noop,
-        touchend: this.stop,
+        onTouchstart: editable && !upDisabledClass && this.up,
+        onTouchend: this.stop,
       };
       downEvents = {
-        touchstart: editable && !downDisabledClass ? this.down : noop,
-        touchend: this.stop,
+        onTouchstart: editable && !downDisabledClass && this.down,
+        onTouchend: this.stop,
       };
     } else {
       upEvents = {
-        mousedown: editable && !upDisabledClass ? this.up : noop,
-        mouseup: this.stop,
-        mouseleave: this.stop,
+        onMousedown: editable && !upDisabledClass && this.up,
+        onMouseup: this.stop,
+        onMouseleave: this.stop,
       };
       downEvents = {
-        mousedown: editable && !downDisabledClass ? this.down : noop,
-        mouseup: this.stop,
-        mouseleave: this.stop,
+        onMousedown: editable && !downDisabledClass && this.down,
+        onMouseup: this.stop,
+        onMouseleave: this.stop,
       };
     }
-    const isUpDisabled = !!upDisabledClass || disabled || readOnly;
-    const isDownDisabled = !!downDisabledClass || disabled || readOnly;
-    const {
-      mouseenter = noop,
-      mouseleave = noop,
-      mouseover = noop,
-      mouseout = noop,
-    } = getListeners(this);
-    const contentProps = {
-      on: { mouseenter, mouseleave, mouseover, mouseout },
-      class: classes,
-      attrs: { title: this.$props.title },
-    };
+    const isUpDisabled = !!upDisabledClass || disabled || readonly;
+    const isDownDisabled = !!downDisabledClass || disabled || readonly;
+
     const upHandlerProps = {
-      props: {
-        disabled: isUpDisabled,
-        prefixCls,
-      },
-      attrs: {
-        unselectable: 'unselectable',
-        role: 'button',
-        'aria-label': 'Increase Value',
-        'aria-disabled': !!isUpDisabled,
-      },
+      disabled: isUpDisabled,
+      prefixCls,
+      unselectable: 'unselectable',
+      role: 'button',
+      'aria-label': 'Increase Value',
+      'aria-disabled': !!isUpDisabled,
       class: `${prefixCls}-handler ${prefixCls}-handler-up ${upDisabledClass}`,
-      on: upEvents,
-      ref: 'up',
+      ...upEvents,
+      ref: this.saveUp,
     };
     const downHandlerProps = {
-      props: {
-        disabled: isDownDisabled,
-        prefixCls,
-      },
-      attrs: {
-        unselectable: 'unselectable',
-        role: 'button',
-        'aria-label': 'Decrease Value',
-        'aria-disabled': !!isDownDisabled,
-      },
+      disabled: isDownDisabled,
+      prefixCls,
+      unselectable: 'unselectable',
+      role: 'button',
+      'aria-label': 'Decrease Value',
+      'aria-disabled': !!isDownDisabled,
       class: `${prefixCls}-handler ${prefixCls}-handler-down ${downDisabledClass}`,
-      on: downEvents,
-      ref: 'down',
+      ...downEvents,
+      ref: this.saveDown,
     };
-    // ref for test
     return (
-      <div {...contentProps}>
+      <div
+        class={classes}
+        style={props.style}
+        title={props.title}
+        onMouseenter={props.onMouseenter}
+        onMouseleave={props.onMouseleave}
+        onMouseover={props.onMouseover}
+        onMouseout={props.onMouseout}
+      >
         <div class={`${prefixCls}-handler-wrap`}>
-          <InputHandler {...upHandlerProps}>
-            {upHandler || (
-              <span
-                unselectable="unselectable"
-                class={`${prefixCls}-handler-up-inner`}
-                onClick={preventDefault}
-              />
-            )}
-          </InputHandler>
-          <InputHandler {...downHandlerProps}>
+          <span>
+            <InputHandler {...upHandlerProps} key="upHandler">
+              {upHandler || (
+                <span
+                  unselectable="unselectable"
+                  class={`${prefixCls}-handler-up-inner`}
+                  onClick={preventDefault}
+                />
+              )}
+            </InputHandler>
+          </span>
+          <InputHandler {...downHandlerProps} key="downHandler">
             {downHandler || (
               <span
                 unselectable="unselectable"
@@ -757,18 +770,19 @@ export default {
             aria-valuemax={this.max}
             aria-valuenow={sValue}
             required={this.required}
-            type={this.type}
+            type={props.type}
             placeholder={this.placeholder}
             onClick={this.handleInputClick}
             class={`${prefixCls}-input`}
-            tabIndex={this.tabIndex}
-            autoComplete={autoComplete}
+            tabindex={this.tabindex}
+            autocomplete={autocomplete}
             onFocus={this.onFocus}
             onBlur={this.onBlur}
-            onKeydown={editable ? this.onKeyDown : noop}
-            onKeyup={editable ? this.onKeyUp : noop}
-            maxLength={this.maxLength}
-            readOnly={this.readOnly}
+            onKeydown={editable && this.onKeyDown}
+            onKeyup={editable && this.onKeyUp}
+            autofocus={this.autofocus}
+            maxlength={this.maxlength}
+            readonly={this.readonly}
             disabled={this.disabled}
             max={this.max}
             min={this.min}
@@ -777,9 +791,10 @@ export default {
             title={this.title}
             id={this.id}
             onInput={this.onChange}
-            ref="inputRef"
+            ref={this.saveInput}
             value={inputDisplayValue}
             pattern={this.pattern}
+            {...dataOrAriaAttributeProps}
           />
         </div>
       </div>

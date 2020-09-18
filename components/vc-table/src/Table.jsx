@@ -1,10 +1,11 @@
 /* eslint-disable camelcase */
-import shallowequal from 'shallowequal';
-import merge from 'lodash/merge';
+import { provide, markRaw } from 'vue';
+import shallowequal from '../../_util/shallowequal';
+import merge from 'lodash-es/merge';
 import classes from 'component-classes';
-import classNames from 'classnames';
+import classNames from '../../_util/classNames';
 import PropTypes from '../../_util/vue-types';
-import { debounce } from './utils';
+import { debounce, getDataAndAriaProps } from './utils';
 import warning from '../../_util/warning';
 import addEventListener from '../../vc-util/Dom/addEventListener';
 import { Provider, create } from '../../_util/store';
@@ -12,12 +13,14 @@ import ColumnManager from './ColumnManager';
 import HeadTable from './HeadTable';
 import BodyTable from './BodyTable';
 import ExpandableTable from './ExpandableTable';
-import { initDefaultProps, getOptionProps, getListeners } from '../../_util/props-util';
+import { initDefaultProps, getOptionProps } from '../../_util/props-util';
 import BaseMixin from '../../_util/BaseMixin';
+import syncWatch from '../../_util/syncWatch';
 
 export default {
   name: 'Table',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: initDefaultProps(
     {
       data: PropTypes.array,
@@ -41,7 +44,7 @@ export default {
       emptyText: PropTypes.any,
       scroll: PropTypes.object,
       rowRef: PropTypes.func,
-      getBodyWrapper: PropTypes.func,
+      // getBodyWrapper: PropTypes.func,
       components: PropTypes.shape({
         table: PropTypes.any,
         header: PropTypes.shape({
@@ -86,22 +89,24 @@ export default {
   data() {
     this.preData = [...this.data];
     return {
-      columnManager: new ColumnManager(this.columns),
-      sComponents: merge(
-        {
-          table: 'table',
-          header: {
-            wrapper: 'thead',
-            row: 'tr',
-            cell: 'th',
+      columnManager: markRaw(new ColumnManager(this.columns)),
+      sComponents: markRaw(
+        merge(
+          {
+            table: 'table',
+            header: {
+              wrapper: 'thead',
+              row: 'tr',
+              cell: 'th',
+            },
+            body: {
+              wrapper: 'tbody',
+              row: 'tr',
+              cell: 'td',
+            },
           },
-          body: {
-            wrapper: 'tbody',
-            row: 'tr',
-            cell: 'td',
-          },
-        },
-        this.components,
+          this.components,
+        ),
       ),
     };
   },
@@ -124,11 +129,11 @@ export default {
         this.components,
       );
     },
-    columns(val) {
+    columns: syncWatch(function(val) {
       if (val) {
         this.columnManager.reset(val);
       }
-    },
+    }),
     data(val) {
       if (val.length === 0 && this.hasScrollX()) {
         this.$nextTick(() => {
@@ -144,19 +149,20 @@ export default {
   // },
 
   created() {
-    ['rowClick', 'rowDoubleclick', 'rowContextmenu', 'rowMouseenter', 'rowMouseleave'].forEach(
-      name => {
-        warning(
-          getListeners(this)[name] === undefined,
-          `${name} is deprecated, please use customRow instead.`,
-        );
-      },
-    );
+    provide('table', this);
+    // ['rowClick', 'rowDoubleclick', 'rowContextmenu', 'rowMouseenter', 'rowMouseleave'].forEach(
+    //   name => {
+    //     warning(
+    //       getListeners(this)[name] === undefined,
+    //       `${name} is deprecated, please use customRow instead.`,
+    //     );
+    //   },
+    // );
 
-    warning(
-      this.getBodyWrapper === undefined,
-      'getBodyWrapper is deprecated, please use custom components instead.',
-    );
+    // warning(
+    //   this.getBodyWrapper === undefined,
+    //   'getBodyWrapper is deprecated, please use custom components instead.',
+    // );
 
     // this.columnManager = new ColumnManager(this.columns, this.$slots.default)
 
@@ -169,11 +175,6 @@ export default {
     this.setScrollPosition('left');
 
     this.debouncedWindowResize = debounce(this.handleWindowResize, 150);
-  },
-  provide() {
-    return {
-      table: this,
-    };
   },
 
   mounted() {
@@ -203,7 +204,7 @@ export default {
     });
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.resizeEvent) {
       this.resizeEvent.remove();
     }
@@ -541,11 +542,11 @@ export default {
   },
 
   render() {
-    const props = getOptionProps(this);
+    const props = { ...getOptionProps(this), ...this.$attrs };
     const { columnManager, getRowKey } = this;
     const prefixCls = props.prefixCls;
 
-    const tableClassName = classNames(props.prefixCls, {
+    const tableClassName = classNames(props.prefixCls, props.class, {
       [`${prefixCls}-fixed-header`]: props.useFixedHeader || (props.scroll && props.scroll.y),
       [`${prefixCls}-scroll-position-left ${prefixCls}-scroll-position-right`]:
         this.scrollPosition === 'both',
@@ -555,45 +556,38 @@ export default {
 
     const hasLeftFixed = columnManager.isAnyColumnsLeftFixed();
     const hasRightFixed = columnManager.isAnyColumnsRightFixed();
-
+    const dataAndAriaProps = getDataAndAriaProps(props);
     const expandableTableProps = {
-      props: {
-        ...props,
-        columnManager,
-        getRowKey,
-      },
-      on: getListeners(this),
-      scopedSlots: {
-        default: expander => {
-          this.expander = expander;
-          return (
-            <div
-              {...{
-                directives: [
-                  {
-                    name: 'ant-ref',
-                    value: this.saveTableNodeRef,
-                  },
-                ],
-              }}
-              class={tableClassName}
-              // style={props.style}
-              // id={props.id}
-            >
-              {this.renderTitle()}
-              <div class={`${prefixCls}-content`}>
-                {this.renderMainTable()}
-                {hasLeftFixed && this.renderLeftFixedTable()}
-                {hasRightFixed && this.renderRightFixedTable()}
-              </div>
-            </div>
-          );
-        },
-      },
+      ...props,
+      columnManager,
+      getRowKey,
     };
     return (
       <Provider store={this.store}>
-        <ExpandableTable {...expandableTableProps} />
+        <ExpandableTable
+          {...expandableTableProps}
+          vSlots={{
+            default: expander => {
+              this.expander = expander;
+              return (
+                <div
+                  ref={this.saveTableNodeRef}
+                  class={tableClassName}
+                  style={props.style}
+                  id={props.id}
+                  {...dataAndAriaProps}
+                >
+                  {this.renderTitle()}
+                  <div class={`${prefixCls}-content`}>
+                    {this.renderMainTable()}
+                    {hasLeftFixed && this.renderLeftFixedTable()}
+                    {hasRightFixed && this.renderRightFixedTable()}
+                  </div>
+                </div>
+              );
+            },
+          }}
+        />
       </Provider>
     );
   },

@@ -1,34 +1,32 @@
+import { inject, Transition } from 'vue';
+import classNames from '../_util/classNames';
 import PropTypes from '../_util/vue-types';
+import backTopTypes from './backTopTypes';
 import addEventListener from '../vc-util/Dom/addEventListener';
 import getScroll from '../_util/getScroll';
 import BaseMixin from '../_util/BaseMixin';
 import getTransitionProps from '../_util/getTransitionProps';
 import { ConfigConsumerProps } from '../config-provider';
-import Base from '../base';
-import { getListeners } from '../_util/props-util';
 import scrollTo from '../_util/scrollTo';
 
 function getDefaultTarget() {
   return window;
 }
 
-const BackTopProps = {
-  visibilityHeight: PropTypes.number,
-  // onClick?: React.MouseEventHandler<any>;
-  target: PropTypes.func,
-  prefixCls: PropTypes.string,
-  // visible: PropTypes.bool, // Only for test. Don't use it.
-};
+const props = backTopTypes();
 
 const BackTop = {
   name: 'ABackTop',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
-    ...BackTopProps,
+    ...props,
     visibilityHeight: PropTypes.number.def(400),
   },
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   data() {
     this.scrollEvent = null;
@@ -44,7 +42,7 @@ const BackTop = {
     });
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.scrollEvent) {
       this.scrollEvent.remove();
     }
@@ -81,32 +79,29 @@ const BackTop = {
 
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('back-top', customizePrefixCls);
-
+    const classString = classNames(prefixCls, this.$attrs.class);
     const defaultElement = (
       <div class={`${prefixCls}-content`}>
         <div class={`${prefixCls}-icon`} />
       </div>
     );
     const divProps = {
-      on: {
-        ...getListeners(this),
-        click: this.scrollToTop,
-      },
-      class: prefixCls,
+      ...this.$attrs,
+      onClick: this.scrollToTop,
+      class: classString,
     };
 
     const backTopBtn = this.visible ? (
-      <div {...divProps}>{$slots.default || defaultElement}</div>
+      <div {...divProps}>{($slots.default && $slots.default()) || defaultElement}</div>
     ) : null;
     const transitionProps = getTransitionProps('fade');
-    return <transition {...transitionProps}>{backTopBtn}</transition>;
+    return <Transition {...transitionProps}>{backTopBtn}</Transition>;
   },
 };
 
 /* istanbul ignore next */
-BackTop.install = function(Vue) {
-  Vue.use(Base);
-  Vue.component(BackTop.name, BackTop);
+BackTop.install = function(app) {
+  app.component(BackTop.name, BackTop);
 };
 
 export default BackTop;

@@ -1,5 +1,6 @@
+import { inject } from 'vue';
 import PropTypes from '../../_util/vue-types';
-import { getComponentFromProp } from '../../_util/props-util';
+import { getComponent, getSlot } from '../../_util/props-util';
 import Sentinel from './Sentinel';
 
 export default {
@@ -14,21 +15,24 @@ export default {
     closable: PropTypes.bool,
     disabled: PropTypes.bool,
   },
-  inject: {
-    sentinelContext: { default: () => ({}) },
+  setup() {
+    return {
+      isActived: undefined,
+      sentinelContext: inject('sentinelContext', {}),
+    };
   },
   render() {
     const { destroyInactiveTabPane, active, forceRender, rootPrefixCls } = this.$props;
-    const children = this.$slots.default;
-    const placeholder = getComponentFromProp(this, 'placeholder');
-    this._isActived = this._isActived || active;
+    const children = getSlot(this);
+    const placeholder = getComponent(this, 'placeholder');
+    this.isActived = this.isActived || active;
     const prefixCls = `${rootPrefixCls}-tabpane`;
     const cls = {
       [prefixCls]: 1,
       [`${prefixCls}-inactive`]: !active,
       [`${prefixCls}-active`]: active,
     };
-    const isRender = destroyInactiveTabPane ? active : this._isActived;
+    const isRender = destroyInactiveTabPane ? active : this.isActived;
     const shouldRender = isRender || forceRender;
     const {
       sentinelStart,

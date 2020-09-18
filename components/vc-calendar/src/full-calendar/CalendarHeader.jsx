@@ -4,6 +4,7 @@ import { getMonthName } from '../util';
 
 const CalendarHeader = {
   name: 'CalendarHeader',
+  inheritAttrs: false,
   mixins: [BaseMixin],
   props: {
     value: PropTypes.object,
@@ -38,7 +39,7 @@ const CalendarHeader = {
 
       const options = [];
       for (let index = start; index < end; index++) {
-        options.push(<Select.Option key={`${index}`}>{index}</Select.Option>);
+        options.push(<Select.Option key={`${index}`}>{(() => index)()}</Select.Option>);
       }
       return (
         <Select
@@ -62,7 +63,7 @@ const CalendarHeader = {
 
       for (let index = 0; index < 12; index++) {
         t.month(index);
-        options.push(<Select.Option key={`${index}`}>{getMonthName(t)}</Select.Option>);
+        options.push(<Select.Option key={`${index}`}>{(() => getMonthName(t))()}</Select.Option>);
       }
 
       return (

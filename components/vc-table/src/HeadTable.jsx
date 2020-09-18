@@ -1,10 +1,12 @@
+import { inject } from 'vue';
 import PropTypes from '../../_util/vue-types';
 import { measureScrollbar } from './utils';
 import BaseTable from './BaseTable';
-import classNames from 'classnames';
+import classNames from '../../_util/classNames';
 
 export default {
   name: 'HeadTable',
+  inheritAttrs: false,
   props: {
     fixed: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
     columns: PropTypes.array.isRequired,
@@ -12,8 +14,10 @@ export default {
     handleBodyScrollLeft: PropTypes.func.isRequired,
     expander: PropTypes.object.isRequired,
   },
-  inject: {
-    table: { default: () => ({}) },
+  setup() {
+    return {
+      table: inject('table', {}),
+    };
   },
   render() {
     const { columns, fixed, tableClassName, handleBodyScrollLeft, expander, table } = this;
@@ -45,14 +49,7 @@ export default {
     return (
       <div
         key="headTable"
-        {...{
-          directives: [
-            {
-              name: 'ant-ref',
-              value: fixed ? () => {} : saveRef('headTable'),
-            },
-          ],
-        }}
+        ref={fixed ? () => {} : saveRef('headTable')}
         class={classNames(`${prefixCls}-header`, {
           [`${prefixCls}-hide-scrollbar`]: scrollbarWidth > 0,
         })}

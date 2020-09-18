@@ -22,11 +22,7 @@ describe('Spin', () => {
     // const customIndicator = <div className='custom-indicator' />
     const wrapper = mount({
       render() {
-        return (
-          <Spin>
-            <div slot="indicator" class="custom-indicator" />
-          </Spin>
-        );
+        return <Spin indicator={<div class="custom-indicator" />}></Spin>;
       },
     });
     expect(wrapper.html()).toMatchSnapshot();
@@ -34,7 +30,7 @@ describe('Spin', () => {
 
   it('should be controlled by spinning', async () => {
     const props = {
-      propsData: {
+      props: {
         spinning: false,
       },
       sync: false,

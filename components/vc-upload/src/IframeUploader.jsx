@@ -1,8 +1,9 @@
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
-import classNames from 'classnames';
+import classNames from '../../_util/classNames';
 import getUid from './uid';
 import warning from '../../_util/warning';
+import { getSlot, findDOMNode } from '../../_util/props-util';
 
 const IFRAME_STYLE = {
   position: 'absolute',
@@ -15,6 +16,7 @@ const IFRAME_STYLE = {
 
 // diferent from AjaxUpload, can only upload on at one time, serial seriously
 const IframeUploader = {
+  name: 'IframeUploader',
   mixins: [BaseMixin],
   props: {
     componentTag: PropTypes.string,
@@ -50,14 +52,14 @@ const IframeUploader = {
           doc.body.removeChild(script);
         }
         response = doc.body.innerHTML;
-        this.$emit('success', response, file);
+        this.__emit('success', response, file);
       } catch (err) {
         warning(
           false,
           'cross domain error for Upload. Maybe server should return document.domain script. see Note from https://github.com/react-component/upload',
         );
         response = 'cross-domain';
-        this.$emit('error', err, null, file);
+        this.__emit('error', err, null, file);
       }
       this.endUpload();
     },
@@ -193,7 +195,7 @@ const IframeUploader = {
       }
     },
     updateIframeWH() {
-      const rootNode = this.$el;
+      const rootNode = findDOMNode(this);
       const iframeNode = this.getIframeNode();
       iframeNode.style.height = `${rootNode.offsetHeight}px`;
       iframeNode.style.width = `${rootNode.offsetWidth}px`;
@@ -238,7 +240,7 @@ const IframeUploader = {
         formNode.setAttribute('action', action);
         formNode.submit();
         dataSpan.innerHTML = '';
-        this.$emit('start', file);
+        this.__emit('start', file);
       });
     },
   },
@@ -256,6 +258,7 @@ const IframeUploader = {
 
   render() {
     const { componentTag: Tag, disabled, prefixCls } = this.$props;
+    const { class: className, style } = this.$attrs;
     const iframeStyle = {
       ...IFRAME_STYLE,
       display: this.uploading || disabled ? 'none' : '',
@@ -263,12 +266,13 @@ const IframeUploader = {
     const cls = classNames({
       [prefixCls]: true,
       [`${prefixCls}-disabled`]: disabled,
+      [className]: className,
     });
 
     return (
-      <Tag className={cls} style={{ position: 'relative', zIndex: 0 }}>
+      <Tag class={cls} style={{ position: 'relative', zIndex: 0, ...style }}>
         <iframe ref="iframeRef" onLoad={this.onLoad} style={iframeStyle} />
-        {this.$slots.default}
+        {getSlot(this)}
       </Tag>
     );
   },

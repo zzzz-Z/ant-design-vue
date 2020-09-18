@@ -1,12 +1,17 @@
-import classNames from 'classnames';
+import classNames from '../_util/classNames';
 import PropTypes from '../_util/vue-types';
-import { isValidElement, initDefaultProps, getListeners } from '../_util/props-util';
+import {
+  isValidElement,
+  initDefaultProps,
+  splitAttrs,
+  findDOMNode,
+  filterEmpty,
+} from '../_util/props-util';
 import BaseMixin from '../_util/BaseMixin';
 import Checkbox from '../checkbox';
 import Search from './search';
 import defaultRenderList from './renderListBody';
 import triggerEvent from '../_util/triggerEvent';
-import addEventListener from '../vc-util/Dom/addEventListener';
 
 const defaultRender = () => null;
 
@@ -49,13 +54,16 @@ export const TransferListProps = {
   disabled: PropTypes.bool,
   direction: PropTypes.string,
   showSelectAll: PropTypes.bool,
+  onItemSelect: PropTypes.func,
+  onItemSelectAll: PropTypes.func,
+  onScroll: PropTypes.func,
 };
 
-function renderListNode(h, renderList, props) {
+function renderListNode(renderList, props) {
   let bodyContent = renderList ? renderList(props) : null;
-  const customize = !!bodyContent;
+  const customize = !!bodyContent && filterEmpty(bodyContent).length > 0;
   if (!customize) {
-    bodyContent = defaultRenderList(h, props);
+    bodyContent = defaultRenderList(props);
   }
   return {
     customize,
@@ -66,6 +74,7 @@ function renderListNode(h, renderList, props) {
 export default {
   name: 'TransferList',
   mixins: [BaseMixin],
+  inheritAttrs: false,
   props: initDefaultProps(TransferListProps, {
     dataSource: [],
     titleText: '',
@@ -79,20 +88,7 @@ export default {
       filterValue: '',
     };
   },
-  // mounted() {
-  //   this.timer = setTimeout(() => {
-  //     this.setState({
-  //       mounted: true,
-  //     });
-  //   }, 0);
-  //   this.$nextTick(() => {
-  //     if (this.$refs.listContentWrapper) {
-  //       const listContentWrapperDom = this.$refs.listContentWrapper.$el;
-  //       this.scrollEvent = addEventListener(listContentWrapperDom, 'scroll', this.handleScroll);
-  //     }
-  //   });
-  // },
-  beforeDestroy() {
+  beforeUnmount() {
     clearTimeout(this.triggerScrollTimer);
     // if (this.scrollEvent) {
     //   this.scrollEvent.remove();
@@ -102,10 +98,6 @@ export default {
     this.$nextTick(() => {
       if (this.scrollEvent) {
         this.scrollEvent.remove();
-      }
-      if (this.$refs.listContentWrapper) {
-        const listContentWrapperDom = this.$refs.listContentWrapper.$el;
-        this.scrollEvent = addEventListener(listContentWrapperDom, 'scroll', this.handleScroll);
       }
     });
   },
@@ -173,10 +165,13 @@ export default {
       let listBody = bodyDom;
       if (!listBody) {
         let bodyNode;
-
-        const { bodyContent, customize } = renderListNode(this.$createElement, renderList, {
-          props: { ...this.$props, filteredItems, filteredRenderItems, selectedKeys: checkedKeys },
-          on: getListeners(this),
+        const { onEvents } = splitAttrs(this.$attrs);
+        const { bodyContent, customize } = renderListNode(renderList, {
+          ...this.$props,
+          filteredItems,
+          filteredRenderItems,
+          selectedKeys: checkedKeys,
+          ...onEvents,
         });
 
         // We should wrap customize list body in a classNamed div to use flex layout.
@@ -244,7 +239,7 @@ export default {
       // Manually trigger scroll event for lazy search bug
       // https://github.com/ant-design/ant-design/issues/5631
       this.triggerScrollTimer = setTimeout(() => {
-        const transferNode = this.$el;
+        const transferNode = findDOMNode(this);
         const listNode = transferNode.querySelectorAll('.ant-transfer-list-content')[0];
         if (listNode) {
           triggerEvent(listNode, 'scroll');
@@ -334,7 +329,7 @@ export default {
     const checkAllCheckbox = this.getCheckBox(filteredItems, showSelectAll, disabled);
 
     return (
-      <div class={listCls}>
+      <div class={listCls} style={this.$attrs.style}>
         <div class={`${prefixCls}-header`}>
           {checkAllCheckbox}
           <span class={`${prefixCls}-header-selected`}>

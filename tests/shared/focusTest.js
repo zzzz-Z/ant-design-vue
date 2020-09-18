@@ -11,15 +11,15 @@ export default function focusTest(Component) {
       jest.useRealTimers();
     });
 
-    it('focus() and onFocus', () => {
+    it('focus() and onFocus', async () => {
       const handleFocus = jest.fn();
       const wrapper = mount(
         {
-          render(h) {
+          render() {
             return <Component ref="component" onFocus={handleFocus} />;
           },
         },
-        { attachToDocument: true, sync: false },
+        { attachTo: 'body', sync: false },
       );
       wrapper.vm.$refs.component.focus();
       jest.runAllTimers();
@@ -30,11 +30,11 @@ export default function focusTest(Component) {
       const handleBlur = jest.fn();
       const wrapper = mount(
         {
-          render(h) {
+          render() {
             return <Component ref="component" onBlur={handleBlur} />;
           },
         },
-        { attachToDocument: true, sync: false },
+        { attachTo: 'body', sync: false },
       );
       wrapper.vm.$refs.component.focus();
       wrapper.vm.$refs.component.blur();
@@ -44,16 +44,16 @@ export default function focusTest(Component) {
       });
     });
 
-    it('autoFocus', done => {
+    it('autofocus', done => {
       jest.useRealTimers();
       const handleFocus = jest.fn();
       mount(
         {
-          render(h) {
-            return <Component autoFocus onFocus={handleFocus} />;
+          render() {
+            return <Component autofocus={true} onFocus={handleFocus} />;
           },
         },
-        { attachToDocument: true, sync: false },
+        { attachTo: 'body', sync: false },
       );
       setTimeout(() => {
         expect(handleFocus).toBeCalled();

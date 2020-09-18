@@ -1,14 +1,13 @@
-import classNames from 'classnames';
+import { inject, cloneVNode } from 'vue';
+import classNames from '../_util/classNames';
 import PropTypes from '../_util/vue-types';
 import {
   getOptionProps,
   getPropsData,
   initDefaultProps,
   filterEmpty,
-  getComponentFromProp,
-  getListeners,
+  getComponent,
 } from '../_util/props-util';
-import { cloneElement } from '../_util/vnode';
 import TimelineItem from './TimelineItem';
 import LoadingOutlined from '@ant-design/icons-vue/LoadingOutlined';
 import { ConfigConsumerProps } from '../config-provider';
@@ -28,23 +27,26 @@ export default {
     reverse: false,
     mode: '',
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    const configProvider = inject('configProvider', ConfigConsumerProps);
+    return {
+      configProvider,
+    };
   },
   render() {
-    const { prefixCls: customizePrefixCls, reverse, mode, ...restProps } = getOptionProps(this);
+    const { prefixCls: customizePrefixCls, reverse, mode } = getOptionProps(this);
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('timeline', customizePrefixCls);
 
-    const pendingDot = getComponentFromProp(this, 'pendingDot');
-    const pending = getComponentFromProp(this, 'pending');
+    const pendingDot = getComponent(this, 'pendingDot');
+    const pending = getComponent(this, 'pending');
     const pendingNode = typeof pending === 'boolean' ? null : pending;
     const classString = classNames(prefixCls, {
       [`${prefixCls}-pending`]: !!pending,
       [`${prefixCls}-reverse`]: !!reverse,
       [`${prefixCls}-${mode}`]: !!mode,
     });
-    const children = filterEmpty(this.$slots.default);
+    const children = filterEmpty(this.$slots.default && this.$slots.default());
     // // Remove falsy items
     // const falsylessItems = filterEmpty(this.$slots.default)
     // const items = falsylessItems.map((item, idx) => {
@@ -55,8 +57,7 @@ export default {
     //   })
     // })
     const pendingItem = pending ? (
-      <TimelineItem pending={!!pending}>
-        <template slot="dot">{pendingDot || <LoadingOutlined />}</template>
+      <TimelineItem pending={!!pending} dot={pendingDot || <LoadingOutlined />}>
         {pendingNode}
       </TimelineItem>
     ) : null;
@@ -85,7 +86,7 @@ export default {
     const items = truthyItems.map((ele, idx) => {
       const pendingClass = idx === itemsCount - 2 ? lastCls : '';
       const readyClass = idx === itemsCount - 1 ? lastCls : '';
-      return cloneElement(ele, {
+      return cloneVNode(ele, {
         class: classNames([
           !reverse && !!pending ? pendingClass : readyClass,
           getPositionCls(ele, idx),
@@ -94,11 +95,7 @@ export default {
     });
 
     const timelineProps = {
-      props: {
-        ...restProps,
-      },
       class: classString,
-      on: getListeners(this),
     };
     return <ul {...timelineProps}>{items}</ul>;
   },

@@ -1,17 +1,13 @@
 import PropTypes from '../_util/vue-types';
 import ScrollNumber from './ScrollNumber';
 import { PresetColorTypes } from '../_util/colors';
-import classNames from 'classnames';
-import {
-  initDefaultProps,
-  filterEmpty,
-  getComponentFromProp,
-  getListeners,
-} from '../_util/props-util';
+import classNames from '../_util/classNames';
+import { initDefaultProps, getComponent, getSlot } from '../_util/props-util';
 import { cloneElement } from '../_util/vnode';
 import getTransitionProps from '../_util/getTransitionProps';
 import isNumeric from '../_util/isNumeric';
 import { ConfigConsumerProps } from '../config-provider';
+import { inject, Transition } from 'vue';
 
 const BadgeProps = {
   /** Number to show in badge */
@@ -25,7 +21,7 @@ const BadgeProps = {
   scrollNumberPrefixCls: PropTypes.string,
   status: PropTypes.oneOf(['success', 'processing', 'default', 'error', 'warning']),
   color: PropTypes.string,
-  text: PropTypes.string,
+  text: PropTypes.any,
   offset: PropTypes.array,
   numberStyle: PropTypes.object.def(() => ({})),
   title: PropTypes.string,
@@ -40,8 +36,10 @@ export default {
     dot: false,
     overflowCount: 99,
   }),
-  inject: {
-    configProvider: { default: () => ConfigConsumerProps },
+  setup() {
+    return {
+      configProvider: inject('configProvider', ConfigConsumerProps),
+    };
   },
   methods: {
     getNumberedDispayCount() {
@@ -79,8 +77,7 @@ export default {
           }
         : { ...numberStyle };
     },
-    getBadgeClassName(prefixCls) {
-      const children = filterEmpty(this.$slots.default);
+    getBadgeClassName(prefixCls, children) {
       const hasStatus = this.hasStatus();
       return classNames(prefixCls, {
         [`${prefixCls}-status`]: hasStatus,
@@ -113,7 +110,7 @@ export default {
     },
 
     renderStatusText(prefixCls) {
-      const { text } = this.$props;
+      const text = getComponent(this, 'text');
       const hidden = this.isHidden();
       return hidden || !text ? null : <span class={`${prefixCls}-status-text`}>{text}</span>;
     },
@@ -124,9 +121,13 @@ export default {
       if (!customNode || typeof customNode !== 'object') {
         return undefined;
       }
-      return cloneElement(customNode, {
-        style: this.getStyleWithOffset(),
-      });
+      return cloneElement(
+        customNode,
+        {
+          style: this.getStyleWithOffset(),
+        },
+        false,
+      );
     },
 
     renderBadgeNumber(prefixCls, scrollNumberPrefixCls) {
@@ -155,8 +156,8 @@ export default {
         <ScrollNumber
           prefixCls={scrollNumberPrefixCls}
           data-show={!hidden}
-          v-show={!hidden}
-          className={scrollNumberCls}
+          vShow={!hidden}
+          class={scrollNumberCls}
           count={displayCount}
           displayComponent={this.renderDispayComponent()}
           title={this.getScrollNumberTitle()}
@@ -172,17 +173,16 @@ export default {
       prefixCls: customizePrefixCls,
       scrollNumberPrefixCls: customizeScrollNumberPrefixCls,
       status,
-      text,
       color,
-      $slots,
     } = this;
 
+    const text = getComponent(this, 'text');
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('badge', customizePrefixCls);
     const scrollNumberPrefixCls = getPrefixCls('scroll-number', customizeScrollNumberPrefixCls);
 
-    const children = filterEmpty($slots.default);
-    let count = getComponentFromProp(this, 'count');
+    const children = getSlot(this);
+    let count = getComponent(this, 'count');
     if (Array.isArray(count)) {
       count = count[0];
     }
@@ -203,11 +203,7 @@ export default {
       const styleWithOffset = this.getStyleWithOffset();
       const statusTextColor = styleWithOffset && styleWithOffset.color;
       return (
-        <span
-          {...{ on: getListeners(this) }}
-          class={this.getBadgeClassName(prefixCls)}
-          style={styleWithOffset}
-        >
+        <span class={this.getBadgeClassName(prefixCls, children)} style={styleWithOffset}>
           <span class={statusCls} style={statusStyle} />
           <span style={{ color: statusTextColor }} class={`${prefixCls}-status-text`}>
             {text}
@@ -219,9 +215,9 @@ export default {
     const transitionProps = getTransitionProps(children.length ? `${prefixCls}-zoom` : '');
 
     return (
-      <span {...{ on: getListeners(this) }} class={this.getBadgeClassName(prefixCls)}>
+      <span class={this.getBadgeClassName(prefixCls, children)}>
         {children}
-        <transition {...transitionProps}>{scrollNumber}</transition>
+        <Transition {...transitionProps}>{scrollNumber}</Transition>
         {statusText}
       </span>
     );

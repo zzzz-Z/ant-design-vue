@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import classNames from '../../_util/classNames';
 import PropTypes from '../../_util/vue-types';
 import BaseMixin from '../../_util/BaseMixin';
 import { initDefaultProps, hasProp } from '../../_util/props-util';
@@ -30,21 +30,22 @@ const rangeProps = {
   allowCross: PropTypes.bool,
   disabled: PropTypes.bool,
   reverse: PropTypes.bool,
-  tabIndex: PropTypes.arrayOf(PropTypes.number),
+  tabindex: PropTypes.arrayOf(PropTypes.number),
   prefixCls: PropTypes.string,
   min: PropTypes.number,
   max: PropTypes.number,
-  autoFocus: PropTypes.bool,
+  autofocus: PropTypes.bool,
 };
 const Range = {
   name: 'Range',
+  inheritAttrs: false,
   displayName: 'Range',
   mixins: [BaseMixin],
   props: initDefaultProps(rangeProps, {
     count: 1,
     allowCross: true,
     pushable: false,
-    tabIndex: [],
+    tabindex: [],
   }),
   data() {
     const { count, min, max } = this;
@@ -105,7 +106,7 @@ const Range = {
         const newValues = value.map(v => {
           return utils.ensureValueInRange(v, this.$props);
         });
-        this.$emit('change', newValues);
+        this.__emit('change', newValues);
       }
     },
     onChange(state) {
@@ -128,11 +129,11 @@ const Range = {
 
       const data = { ...this.$data, ...state };
       const changedValue = data.bounds;
-      this.$emit('change', changedValue);
+      this.__emit('change', changedValue);
     },
     onStart(position) {
       const { bounds } = this;
-      this.$emit('beforeChange', bounds);
+      this.__emit('beforeChange', bounds);
 
       const value = this.calcValueByPos(position);
       this.startValue = value;
@@ -156,7 +157,7 @@ const Range = {
       const { sHandle } = this;
       this.removeDocumentEvents();
       if (sHandle !== null || force) {
-        this.$emit('afterChange', this.bounds);
+        this.__emit('afterChange', this.bounds);
       }
       this.setState({ sHandle: null });
     },
@@ -266,7 +267,7 @@ const Range = {
         // so trigger focus will invoke handler's onEnd and another handler's onStart too early,
         // cause onBeforeChange and onAfterChange receive wrong value.
         // here use setState callback to hack，but not elegant
-        this.$emit('afterChange', nextBounds);
+        this.__emit('afterChange', nextBounds);
         this.setState({}, () => {
           this.handlesRefs[nextHandle].focus();
         });
@@ -395,19 +396,19 @@ const Range = {
         defaultHandle,
         trackStyle,
         handleStyle,
-        tabIndex,
+        tabindex,
       } = this;
       const handleGenerator = handle || defaultHandle;
       const offsets = bounds.map(v => this.calcOffset(v));
 
       const handleClassName = `${prefixCls}-handle`;
       const handles = bounds.map((v, i) => {
-        let _tabIndex = tabIndex[i] || 0;
-        if (disabled || tabIndex[i] === null) {
+        let _tabIndex = tabindex[i] || 0;
+        if (disabled || tabindex[i] === null) {
           _tabIndex = null;
         }
         return handleGenerator({
-          className: classNames({
+          class: classNames({
             [handleClassName]: true,
             [`${handleClassName}-${i + 1}`]: true,
           }),
@@ -417,22 +418,15 @@ const Range = {
           value: v,
           dragging: sHandle === i,
           index: i,
-          tabIndex: _tabIndex,
+          tabindex: _tabIndex,
           min,
           max,
           reverse,
           disabled,
           style: handleStyle[i],
-          directives: [
-            {
-              name: 'ant-ref',
-              value: h => this.saveHandle(i, h),
-            },
-          ],
-          on: {
-            focus: this.onFocus,
-            blur: this.onBlur,
-          },
+          ref: h => this.saveHandle(i, h),
+          onFocus: this.onFocus,
+          onBlur: this.onBlur,
         });
       });
 
