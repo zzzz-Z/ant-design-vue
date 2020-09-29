@@ -1,11 +1,11 @@
-import { inject } from 'vue';
+import { inject, withDirectives } from 'vue';
+import antInputDirective from '../_util/antInputDirective';
 import classNames from '../_util/classNames';
 import omit from 'omit.js';
 import inputProps from './inputProps';
 import { hasProp, getComponent, getOptionProps } from '../_util/props-util';
 import { ConfigConsumerProps } from '../config-provider';
 import ClearableLabeledInput from './ClearableLabeledInput';
-import syncWatch from '../_util/syncWatch';
 
 export function fixControlledValue(value) {
   if (typeof value === 'undefined' || value === null) {
@@ -64,12 +64,13 @@ export default {
     const value = typeof props.value === 'undefined' ? props.defaultValue : props.value;
     return {
       stateValue: typeof value === 'undefined' ? '' : value,
+      isFocused: false,
     };
   },
   watch: {
-    value: syncWatch(function(val) {
+    value(val) {
       this.stateValue = val;
-    }),
+    },
   },
   mounted() {
     this.$nextTick(() => {
@@ -87,6 +88,16 @@ export default {
     }
   },
   methods: {
+    handleInputFocus(e) {
+      this.isFocused = true;
+      this.onFocus && this.onFocus(e);
+    },
+
+    handleInputBlur(e) {
+      this.isFocused = false;
+      this.onBlur && this.onBlur(e);
+    },
+
     focus() {
       this.input.focus();
     },
@@ -147,7 +158,15 @@ export default {
         'inputPrefixCls',
         'loading',
       ]);
-      const { handleKeyDown, handleChange, size, disabled, $attrs } = this;
+      const {
+        handleKeyDown,
+        handleChange,
+        handleInputFocus,
+        handleInputBlur,
+        size,
+        disabled,
+        $attrs,
+      } = this;
 
       const inputProps = {
         ...otherProps,
@@ -160,11 +179,13 @@ export default {
         key: 'ant-input',
         onInput: handleChange,
         onChange: handleChange,
+        onFocus: handleInputFocus,
+        onBlur: handleInputBlur,
       };
       if (!inputProps.autofocus) {
         delete inputProps.autofocus;
       }
-      return <input {...inputProps} />;
+      return withDirectives(<input {...inputProps} />, [[antInputDirective]]);
     },
     clearPasswordValueAttribute() {
       // https://github.com/ant-design/ant-design/issues/20541
@@ -205,7 +226,7 @@ export default {
     //   return <TextArea {...textareaProps} ref="input" />;
     // }
     const { prefixCls: customizePrefixCls } = this.$props;
-    const { stateValue } = this.$data;
+    const { stateValue, isFocused } = this.$data;
     const getPrefixCls = this.configProvider.getPrefixCls;
     const prefixCls = getPrefixCls('input', customizePrefixCls);
     const addonAfter = getComponent(this, 'addonAfter');
@@ -224,6 +245,7 @@ export default {
       addonBefore,
       suffix,
       prefix,
+      isFocused,
     };
     return <ClearableLabeledInput {...props} ref={this.saveClearableInput} />;
   },
